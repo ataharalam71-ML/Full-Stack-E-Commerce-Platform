@@ -2,10 +2,9 @@
 // Run with:  npm run seed     (keeps existing deals)
 //            npm run reset    (wipes deals and re-adds the demo set)
 require('dotenv').config();
-const bcrypt = require('bcryptjs');
 const { initSchema, get, run, transaction } = require('../src/config/db');
 const { slugify } = require('../src/utils/slug');
-const { setSetting } = require('../src/utils/affiliate');
+const { ensureAdmin, ensureDefaultSettings } = require('../src/utils/bootstrap');
 
 const RESET = process.argv.includes('--reset');
 
@@ -162,42 +161,6 @@ const DEMO_DEALS = [
   },
 ];
 
-function seedAdmin() {
-  const name = process.env.ADMIN_NAME || 'Site Owner';
-  const email = (process.env.ADMIN_EMAIL || 'admin@dealdost.com').toLowerCase();
-  const password = process.env.ADMIN_PASSWORD || 'Admin@123';
-
-  if (get('SELECT id FROM users WHERE email = ?', email)) {
-    console.log(`Admin already exists: ${email}`);
-    return;
-  }
-
-  run(
-    "INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, 'admin')",
-    name,
-    email,
-    bcrypt.hashSync(password, 10)
-  );
-  console.log(`Admin created: ${email} / ${password}`);
-}
-
-function seedSettings() {
-  const defaults = {
-    site_name: 'DealDost',
-    site_tagline: 'Handpicked deals from Amazon, Flipkart & Meesho',
-    contact_email: process.env.ADMIN_EMAIL || 'admin@dealdost.com',
-    amazon_tag: process.env.AMAZON_TAG || '',
-    flipkart_affid: process.env.FLIPKART_AFFID || '',
-    meesho_tag: process.env.MEESHO_TAG || '',
-  };
-
-  for (const [key, value] of Object.entries(defaults)) {
-    // Never overwrite a value the owner already set in the admin panel.
-    if (!get('SELECT key FROM settings WHERE key = ?', key)) setSetting(key, value);
-  }
-  console.log('Default settings in place');
-}
-
 function seedDeals() {
   if (RESET) {
     run('DELETE FROM clicks');
@@ -241,8 +204,8 @@ function seedDeals() {
 
 try {
   initSchema();
-  seedAdmin();
-  seedSettings();
+  ensureAdmin();
+  ensureDefaultSettings();
   seedDeals();
   console.log('\nSeed complete. Start the API with: npm run dev');
 } catch (err) {
