@@ -9,7 +9,7 @@ const rateLimit = require('express-rate-limit');
 const authRoutes = require('./routes/auth.routes');
 const dealRoutes = require('./routes/deal.routes');
 const adminRoutes = require('./routes/admin.routes');
-const { siteInfo, sitemap } = require('./controllers/site.controller');
+const { siteInfo, sitemap, robots } = require('./controllers/site.controller');
 const { clickThrough } = require('./controllers/deal.controller');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 
@@ -59,6 +59,7 @@ app.get('/api/site', siteInfo);
 // Outbound affiliate click: /go/12 -> logs the click -> 302 to the store with your tag.
 app.get('/go/:id', clickThrough);
 app.get('/sitemap.xml', sitemap);
+app.get('/robots.txt', robots); // registered before express.static so it wins
 
 // ── Single-origin mode ────────────────────────────────────────────────────────
 // If the frontend has been built, serve it from this same server. One URL, one port,

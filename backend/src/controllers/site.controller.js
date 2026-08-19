@@ -48,4 +48,24 @@ const sitemap = asyncHandler(async (req, res) => {
   res.type('application/xml').send(xml);
 });
 
-module.exports = { siteInfo, sitemap };
+/**
+ * robots.txt is generated rather than shipped as a static file, so the Sitemap line always
+ * matches SITE_URL instead of whatever host it was last edited for.
+ */
+const robots = asyncHandler(async (req, res) => {
+  const base = SITE_URL();
+  res.type('text/plain').send(
+    [
+      'User-agent: *',
+      'Allow: /',
+      '',
+      '# Affiliate redirects must not be crawled or indexed.',
+      'Disallow: /go/',
+      '',
+      `Sitemap: ${base}/sitemap.xml`,
+      '',
+    ].join('\n')
+  );
+});
+
+module.exports = { siteInfo, sitemap, robots };
