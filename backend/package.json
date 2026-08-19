@@ -1,0 +1,28 @@
+{
+  "name": "affiliate-backend",
+  "version": "1.0.0",
+  "description": "Affiliate marketing site API - deals from Amazon/Flipkart/Meesho, click tracking, admin panel",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "migrate": "node db/migrate.js",
+    "seed": "node db/seed.js",
+    "reset": "node db/seed.js --reset"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "zod": "^3.23.8"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}

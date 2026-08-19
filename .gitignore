@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Secrets and local config
+.env
+.env.local
+
+# SQLite database + write-ahead log (this is your data — back it up, don't commit it)
+backend/db/*.db
+backend/db/*.db-wal
+backend/db/*.db-shm
+
+# Build output
+frontend/dist/
+
+# Editor / OS noise
+.lh/
+.DS_Store
+Thumbs.db
+*.log

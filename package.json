@@ -1,0 +1,18 @@
+{
+  "name": "affiliate-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Affiliate marketing site (Amazon/Flipkart/Meesho) - React storefront + Express/SQLite API",
+  "scripts": {
+    "setup": "npm --prefix backend install && npm --prefix frontend install",
+    "seed": "npm --prefix backend run seed",
+    "build": "npm --prefix frontend run build",
+    "start": "npm --prefix backend start",
+    "deploy:build": "npm --prefix backend install && npm --prefix frontend install && npm --prefix frontend run build",
+    "dev:api": "npm --prefix backend run dev",
+    "dev:web": "npm --prefix frontend run dev"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}

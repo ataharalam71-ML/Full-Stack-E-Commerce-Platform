@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# Affiliate redirects must not be crawled or indexed.
+Disallow: /go/
+
+# Point crawlers at the sitemap the API generates.
+Sitemap: http://localhost:5000/sitemap.xml
