@@ -1,7 +1,7 @@
 require('dotenv').config();
 
 const app = require('./app');
-const { initSchema, DB_FILE } = require('./config/db');
+const { initSchema, ping } = require('./config/db');
 const { ensureAdmin, ensureDefaultSettings } = require('./utils/bootstrap');
 
 const PORT = process.env.PORT || 5000;
@@ -11,13 +11,25 @@ if (!process.env.JWT_SECRET) {
   process.exit(1);
 }
 
-// Schema + admin + settings are created on every boot if they are missing. That makes the
-// first deploy work with no shell access, and survives a host wiping the disk on redeploy.
-initSchema();
-console.log(`SQLite database ready at ${DB_FILE}`);
-ensureAdmin({ quiet: true });
-ensureDefaultSettings({ quiet: true });
+async function start() {
+  try {
+    const info = await ping();
+    console.log(`Connected to Postgres database "${info.db}"`);
+  } catch (err) {
+    console.error('Could not reach Postgres:', err.message);
+    console.error('Check DATABASE_URL in your environment (see .env.example).');
+    process.exit(1);
+  }
 
-app.listen(PORT, () => {
-  console.log(`Affiliate site API running on http://localhost:${PORT}`);
-});
+  // Tables, admin account and settings are created if missing on every boot, so a fresh
+  // deploy needs no shell access. Deals are never auto-created — they are your data.
+  await initSchema();
+  await ensureAdmin({ quiet: true });
+  await ensureDefaultSettings({ quiet: true });
+
+  app.listen(PORT, () => {
+    console.log(`Affiliate site API running on http://localhost:${PORT}`);
+  });
+}
+
+start();

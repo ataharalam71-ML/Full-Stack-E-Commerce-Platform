@@ -11,9 +11,9 @@ const SITE_URL = () => (process.env.SITE_URL || 'http://localhost:3000').replace
 const siteInfo = asyncHandler(async (req, res) => {
   res.json({
     site: {
-      name: getSetting('site_name', 'DealDost'),
-      tagline: getSetting('site_tagline', 'Handpicked deals from Amazon, Flipkart & Meesho'),
-      contact_email: getSetting('contact_email', ''),
+      name: await getSetting('site_name', 'DealDost'),
+      tagline: await getSetting('site_tagline', 'Handpicked deals from Amazon, Flipkart & Meesho'),
+      contact_email: await getSetting('contact_email', ''),
       url: SITE_URL(),
     },
     stores: publicStores(),
@@ -25,7 +25,7 @@ const escapeXml = (s) => String(s).replace(/[<>&'"]/g, (c) => XML_ESCAPES[c]);
 
 const sitemap = asyncHandler(async (req, res) => {
   const base = SITE_URL();
-  const deals = all(
+  const deals = await all(
     'SELECT slug, updated_at FROM deals WHERE is_active = 1 ORDER BY updated_at DESC LIMIT 5000'
   );
 
@@ -33,7 +33,7 @@ const sitemap = asyncHandler(async (req, res) => {
   const urls = [
     ...staticPaths.map((p) => `  <url><loc>${base}${p}</loc><changefreq>daily</changefreq></url>`),
     ...deals.map((d) => {
-      const lastmod = (d.updated_at || '').slice(0, 10);
+      const lastmod = new Date(d.updated_at).toISOString().slice(0, 10);
       return `  <url><loc>${base}/deal/${escapeXml(d.slug)}</loc><lastmod>${lastmod}</lastmod></url>`;
     }),
   ];

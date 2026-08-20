@@ -15,7 +15,7 @@ const login = asyncHandler(async (req, res) => {
   if (!parsed.success) throw new ApiError(400, parsed.error.issues[0].message);
   const { email, password } = parsed.data;
 
-  const user = get(
+  const user = await get(
     'SELECT id, name, email, password_hash, role FROM users WHERE email = ?',
     email.toLowerCase()
   );
@@ -29,7 +29,10 @@ const login = asyncHandler(async (req, res) => {
 });
 
 const me = asyncHandler(async (req, res) => {
-  const user = get('SELECT id, name, email, role, created_at FROM users WHERE id = ?', req.user.id);
+  const user = await get(
+    'SELECT id, name, email, role, created_at FROM users WHERE id = ?',
+    req.user.id
+  );
   if (!user) throw new ApiError(404, 'User not found');
   res.json({ user });
 });

@@ -1,6 +1,6 @@
 // Everything store-specific lives here: which stores exist, how to recognise one from a
 // URL, and how to stamp your affiliate ID onto an outgoing link.
-const { get, run } = require('../config/db');
+const { all, get, run } = require('../config/db');
 
 const STORES = {
   amazon: {
@@ -94,33 +94,37 @@ function detectStore(rawUrl) {
 }
 
 /** Affiliate IDs come from the settings table, falling back to .env. */
-function getAffiliateIds() {
+async function getAffiliateIds() {
+  const rows = await all('SELECT key, value FROM settings');
+  const stored = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+
   const ids = {};
   for (const key of STORE_KEYS) {
-    const row = get('SELECT value FROM settings WHERE key = ?', STORES[key].settingKey);
-    ids[key] = (row?.value || process.env[STORES[key].envKey] || '').trim();
+    const config = STORES[key];
+    ids[key] = (stored[config.settingKey] || process.env[config.envKey] || '').trim();
   }
   return ids;
 }
 
-function setSetting(key, value) {
-  run(
-    `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now'))
-     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`,
+async function setSetting(key, value) {
+  await run(
+    `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, NOW())
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
     key,
     String(value ?? '')
   );
 }
 
-function getSetting(key, fallback = '') {
-  return get('SELECT value FROM settings WHERE key = ?', key)?.value ?? fallback;
+async function getSetting(key, fallback = '') {
+  const row = await get('SELECT value FROM settings WHERE key = ?', key);
+  return row?.value ?? fallback;
 }
 
 /**
  * Adds your affiliate ID + a per-deal sub-ID to a link, without ever overwriting an ID
  * that is already in the URL (links copied out of an affiliate dashboard keep working).
  */
-function withAffiliateTag(rawUrl, store, dealId) {
+async function withAffiliateTag(rawUrl, store, dealId) {
   const config = STORES[store];
   const parsed = validateAffiliateUrl(rawUrl);
   if (!config || !parsed.ok) return rawUrl;
@@ -131,7 +135,7 @@ function withAffiliateTag(rawUrl, store, dealId) {
   const isStoreLink = config.domains.some((d) => hostMatches(host, d));
   if (!isStoreLink) return url.toString();
 
-  const affiliateId = getAffiliateIds()[store];
+  const affiliateId = (await getAffiliateIds())[store];
   if (affiliateId && !url.searchParams.has(config.tagParam)) {
     url.searchParams.set(config.tagParam, affiliateId);
   }

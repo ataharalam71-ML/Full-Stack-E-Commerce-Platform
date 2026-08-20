@@ -2,7 +2,7 @@
 // Run with:  npm run seed     (keeps existing deals)
 //            npm run reset    (wipes deals and re-adds the demo set)
 require('dotenv').config();
-const { initSchema, get, run, transaction } = require('../src/config/db');
+const { initSchema, get, transaction, pool } = require('../src/config/db');
 const { slugify } = require('../src/utils/slug');
 const { ensureAdmin, ensureDefaultSettings } = require('../src/utils/bootstrap');
 
@@ -161,23 +161,26 @@ const DEMO_DEALS = [
   },
 ];
 
-function seedDeals() {
+async function seedDeals() {
   if (RESET) {
-    run('DELETE FROM clicks');
-    run('DELETE FROM deals');
+    await transaction(async (tx) => {
+      await tx.run('DELETE FROM clicks');
+      await tx.run('DELETE FROM deals');
+    });
     console.log('Existing deals cleared (--reset)');
   }
 
-  const { n } = get('SELECT COUNT(*) AS n FROM deals');
+  const { n } = await get('SELECT COUNT(*)::int AS n FROM deals');
   if (n > 0) {
     console.log(`${n} deals already present — skipping demo deals`);
     return;
   }
 
-  transaction(() => {
-    DEMO_DEALS.forEach((d) => {
+  await transaction(async (tx) => {
+    for (const d of DEMO_DEALS) {
       const slug = slugify(d.title);
-      run(
+      // eslint-disable-next-line no-await-in-loop -- one transaction, ordered inserts
+      await tx.run(
         `INSERT INTO deals
            (title, slug, description, store, affiliate_url, image_url, category, brand,
             price, mrp, rating, coupon_code, is_featured, is_active)
@@ -196,7 +199,7 @@ function seedDeals() {
         d.coupon_code ?? null,
         d.is_featured ?? 0
       );
-    });
+    }
   });
 
   console.log(`${DEMO_DEALS.length} demo deals added`);

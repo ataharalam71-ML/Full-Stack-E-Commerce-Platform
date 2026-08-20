@@ -11,17 +11,17 @@ const { setSetting } = require('./affiliate');
  * Creates the admin account from ADMIN_EMAIL / ADMIN_PASSWORD if no admin exists yet.
  * Never touches an existing account, so a password you changed later is safe.
  */
-function ensureAdmin({ quiet = false } = {}) {
+async function ensureAdmin({ quiet = false } = {}) {
   const email = (process.env.ADMIN_EMAIL || 'admin@dealdost.com').toLowerCase();
   const password = process.env.ADMIN_PASSWORD || 'Admin@123';
   const name = process.env.ADMIN_NAME || 'Site Owner';
 
-  if (get('SELECT id FROM users WHERE email = ?', email)) {
+  if (await get('SELECT id FROM users WHERE email = ?', email)) {
     if (!quiet) console.log(`Admin already exists: ${email}`);
     return false;
   }
 
-  run(
+  await run(
     "INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, 'admin')",
     name,
     email,
@@ -36,7 +36,7 @@ function ensureAdmin({ quiet = false } = {}) {
 }
 
 /** Fills in site branding and affiliate IDs the first time only — admin edits always win. */
-function ensureDefaultSettings({ quiet = false } = {}) {
+async function ensureDefaultSettings({ quiet = false } = {}) {
   const defaults = {
     site_name: 'DealDost',
     site_tagline: 'Handpicked deals from Amazon, Flipkart & Meesho',
@@ -47,7 +47,7 @@ function ensureDefaultSettings({ quiet = false } = {}) {
   };
 
   for (const [key, value] of Object.entries(defaults)) {
-    if (!get('SELECT key FROM settings WHERE key = ?', key)) setSetting(key, value);
+    if (!(await get('SELECT key FROM settings WHERE key = ?', key))) await setSetting(key, value);
   }
   if (!quiet) console.log('Default settings in place');
   return true;

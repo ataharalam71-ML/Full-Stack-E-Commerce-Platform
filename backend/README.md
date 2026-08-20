@@ -13,13 +13,15 @@ admin CRUD API. See the root `README.md` for setup and the full endpoint table.
 | `npm run seed` | Create the admin user, default settings and demo deals |
 | `npm run reset` | Wipe deals + clicks, then re-seed the demo set |
 
-## Why SQLite
+## Why Postgres (and not a file)
 
-`node:sqlite` ships inside Node 24 — no `npm install`, no native build, no database server,
-no monthly bill. The entire dataset is `db/affiliate.db`; copy that file and you have a backup.
-A deals site is read-heavy with a tiny working set, so this holds up well past the point where
-the site is earning. If you ever outgrow it, `src/config/db.js` is the only file that talks to
-the database.
+This started on SQLite, which was lovely locally and unusable in production: free hosts give a
+service an **ephemeral filesystem**, so the database file — and every deal in it — is deleted
+whenever the instance restarts, which for a sleeping free instance is about once a day.
+
+Postgres on Neon's free tier lives outside the instance, so restarts and redeploys cost nothing.
+`src/config/db.js` is still the only file that talks to the database: it rewrites `?`
+placeholders into `$1..$n`, so the SQL in the controllers reads the same as it always did.
 
 Redis is replaced by `src/config/cache.js` — an in-process TTL map. Listings are cached for
 `CACHE_TTL_SECONDS` (default 60) and every write calls `cacheClear()`, so the admin panel never

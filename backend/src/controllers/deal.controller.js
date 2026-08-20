@@ -11,7 +11,7 @@ const DEAL_FIELDS = `
   id, title, slug, description, store, image_url, category, brand,
   price, mrp, rating, coupon_code, is_featured, is_active, clicks, created_at,
   CASE WHEN mrp IS NOT NULL AND mrp > price AND mrp > 0
-       THEN CAST(ROUND((mrp - price) * 100.0 / mrp) AS INTEGER)
+       THEN ROUND(((mrp - price) * 100.0 / mrp)::numeric)::int
        ELSE 0 END AS discount_percent`;
 
 const SORTS = {
@@ -59,7 +59,7 @@ const listDeals = asyncHandler(async (req, res) => {
   const params = [];
 
   if (q.trim()) {
-    where.push('(title LIKE ? OR description LIKE ? OR brand LIKE ? OR category LIKE ?)');
+    where.push('(title ILIKE ? OR description ILIKE ? OR brand ILIKE ? OR category ILIKE ?)');
     const like = `%${q.trim()}%`;
     params.push(like, like, like, like);
   }
@@ -88,8 +88,8 @@ const listDeals = asyncHandler(async (req, res) => {
   }
 
   const whereSql = `WHERE ${where.join(' AND ')}`;
-  const { total } = get(`SELECT COUNT(*) AS total FROM deals ${whereSql}`, ...params);
-  const rows = all(
+  const { total } = await get(`SELECT COUNT(*)::int AS total FROM deals ${whereSql}`, ...params);
+  const rows = await all(
     `SELECT ${DEAL_FIELDS} FROM deals ${whereSql} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
     ...params,
     limit,
@@ -111,20 +111,20 @@ const listFilters = asyncHandler(async (req, res) => {
   if (cached) return res.json(cached);
 
   const payload = {
-    categories: all(
-      `SELECT category, COUNT(*) AS count FROM deals WHERE is_active = 1
+    categories: await all(
+      `SELECT category, COUNT(*)::int AS count FROM deals WHERE is_active = 1
        GROUP BY category ORDER BY count DESC, category ASC`
     ),
-    brands: all(
-      `SELECT brand, COUNT(*) AS count FROM deals
+    brands: await all(
+      `SELECT brand, COUNT(*)::int AS count FROM deals
        WHERE is_active = 1 AND brand IS NOT NULL AND brand <> ''
        GROUP BY brand ORDER BY count DESC, brand ASC LIMIT 30`
     ),
-    storeCounts: all(
-      `SELECT store, COUNT(*) AS count FROM deals WHERE is_active = 1 GROUP BY store`
+    storeCounts: await all(
+      `SELECT store, COUNT(*)::int AS count FROM deals WHERE is_active = 1 GROUP BY store`
     ),
     stores: publicStores(),
-    priceRange: get(
+    priceRange: await get(
       `SELECT COALESCE(MIN(price), 0) AS min, COALESCE(MAX(price), 0) AS max
        FROM deals WHERE is_active = 1`
     ),
@@ -139,14 +139,14 @@ const getDeal = asyncHandler(async (req, res) => {
   const { idOrSlug } = req.params;
   const numericId = Number(idOrSlug);
 
-  const row = get(
+  const row = await get(
     `SELECT ${DEAL_FIELDS} FROM deals WHERE is_active = 1 AND (slug = ? OR id = ?)`,
     idOrSlug,
     Number.isInteger(numericId) ? numericId : -1
   );
   if (!row) throw new ApiError(404, 'Deal not found');
 
-  const related = all(
+  const related = await all(
     `SELECT ${DEAL_FIELDS} FROM deals
      WHERE is_active = 1 AND id <> ? AND (category = ? OR store = ?)
      ORDER BY (category = ?) DESC, clicks DESC LIMIT 4`,
@@ -165,21 +165,21 @@ const getDeal = asyncHandler(async (req, res) => {
  */
 const clickThrough = asyncHandler(async (req, res) => {
   const dealId = Number(req.params.id);
-  const deal = get(
+  const deal = await get(
     'SELECT id, store, affiliate_url FROM deals WHERE id = ? AND is_active = 1',
     Number.isInteger(dealId) ? dealId : -1
   );
   if (!deal) throw new ApiError(404, 'Deal not found or no longer available');
 
-  run('UPDATE deals SET clicks = clicks + 1 WHERE id = ?', deal.id);
-  run(
+  await run('UPDATE deals SET clicks = clicks + 1 WHERE id = ?', deal.id);
+  await run(
     'INSERT INTO clicks (deal_id, referrer, user_agent) VALUES (?, ?, ?)',
     deal.id,
     req.get('referer') || null,
     (req.get('user-agent') || '').slice(0, 300) || null
   );
 
-  const target = withAffiliateTag(deal.affiliate_url, deal.store, deal.id);
+  const target = await withAffiliateTag(deal.affiliate_url, deal.store, deal.id);
 
   // Affiliate links must not be followed/indexed by crawlers.
   res.set('X-Robots-Tag', 'noindex, nofollow');

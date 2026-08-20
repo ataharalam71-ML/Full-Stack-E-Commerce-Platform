@@ -119,7 +119,7 @@ const listDeals = asyncHandler(async (req, res) => {
   const params = [];
 
   if (q.trim()) {
-    where.push('(title LIKE ? OR brand LIKE ? OR category LIKE ? OR affiliate_url LIKE ?)');
+    where.push('(title ILIKE ? OR brand ILIKE ? OR category ILIKE ? OR affiliate_url ILIKE ?)');
     const like = `%${q.trim()}%`;
     params.push(like, like, like, like);
   }
@@ -132,8 +132,8 @@ const listDeals = asyncHandler(async (req, res) => {
   if (status === 'featured') where.push('is_featured = 1');
 
   const whereSql = `WHERE ${where.join(' AND ')}`;
-  const { total } = get(`SELECT COUNT(*) AS total FROM deals ${whereSql}`, ...params);
-  const deals = all(
+  const { total } = await get(`SELECT COUNT(*)::int AS total FROM deals ${whereSql}`, ...params);
+  const deals = await all(
     `SELECT * FROM deals ${whereSql} ORDER BY ${ADMIN_SORTS[sort] || ADMIN_SORTS.newest}
      LIMIT ? OFFSET ?`,
     ...params,
@@ -142,44 +142,47 @@ const listDeals = asyncHandler(async (req, res) => {
   );
 
   res.json({
-    deals: deals.map((d) => ({
-      ...d,
-      is_active: Boolean(d.is_active),
-      is_featured: Boolean(d.is_featured),
-      // Shows the admin exactly where a visitor will land, affiliate tag included.
-      tagged_url: withAffiliateTag(d.affiliate_url, d.store, d.id),
-    })),
+    deals: await Promise.all(
+      deals.map(async (d) => ({
+        ...d,
+        is_active: Boolean(d.is_active),
+        is_featured: Boolean(d.is_featured),
+        // Shows the admin exactly where a visitor will land, affiliate tag included.
+        tagged_url: await withAffiliateTag(d.affiliate_url, d.store, d.id),
+      }))
+    ),
     pagination: { total, page, limit, pages: Math.max(1, Math.ceil(total / limit)) },
   });
 });
 
 const createDeal = asyncHandler(async (req, res) => {
   const d = parseDeal(req.body);
-  const slug = uniqueSlug(d.title);
+  const slug = await uniqueSlug(d.title);
 
-  const { lastInsertRowid } = run(
+  const { rows } = await run(
     `INSERT INTO deals
        (title, slug, description, store, affiliate_url, image_url, category, brand,
         price, mrp, rating, coupon_code, is_featured, is_active)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     RETURNING id`,
     d.title, slug, d.description, d.store, d.affiliate_url, d.image_url, d.category,
     d.brand, d.price, d.mrp, d.rating, d.coupon_code, d.is_featured, d.is_active
   );
 
   cacheClear();
-  res.status(201).json({ deal: get('SELECT * FROM deals WHERE id = ?', Number(lastInsertRowid)) });
+  res.status(201).json({ deal: await get('SELECT * FROM deals WHERE id = ?', rows[0].id) });
 });
 
 const updateDeal = asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
-  const existing = get('SELECT * FROM deals WHERE id = ?', Number.isInteger(id) ? id : -1);
+  const existing = await get('SELECT * FROM deals WHERE id = ?', Number.isInteger(id) ? id : -1);
   if (!existing) throw new ApiError(404, 'Deal not found');
 
   // Merge so a partial submit does not blank out fields the admin did not touch.
   const d = parseDeal({ ...existing, ...req.body });
-  const slug = d.title === existing.title ? existing.slug : uniqueSlug(d.title, id);
+  const slug = d.title === existing.title ? existing.slug : await uniqueSlug(d.title, id);
 
-  run(
+  await run(
     `UPDATE deals SET title = ?, slug = ?, description = ?, store = ?, affiliate_url = ?,
        image_url = ?, category = ?, brand = ?, price = ?, mrp = ?, rating = ?,
        coupon_code = ?, is_featured = ?, is_active = ?
@@ -189,16 +192,19 @@ const updateDeal = asyncHandler(async (req, res) => {
   );
 
   cacheClear();
-  res.json({ deal: get('SELECT * FROM deals WHERE id = ?', id) });
+  res.json({ deal: await get('SELECT * FROM deals WHERE id = ?', id) });
 });
 
 /** Hard delete. Rows in `clicks` go with it via ON DELETE CASCADE. */
 const deleteDeal = asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
-  const existing = get('SELECT id, title FROM deals WHERE id = ?', Number.isInteger(id) ? id : -1);
+  const existing = await get(
+    'SELECT id, title FROM deals WHERE id = ?',
+    Number.isInteger(id) ? id : -1
+  );
   if (!existing) throw new ApiError(404, 'Deal not found');
 
-  run('DELETE FROM deals WHERE id = ?', id);
+  await run('DELETE FROM deals WHERE id = ?', id);
   cacheClear();
   res.json({ deleted: existing.id, title: existing.title });
 });
@@ -210,9 +216,10 @@ const deleteManyDeals = asyncHandler(async (req, res) => {
     .filter(Number.isInteger);
   if (!ids.length) throw new ApiError(400, 'Send an "ids" array of deal ids to delete');
 
-  const deleted = transaction(() =>
-    ids.reduce((count, id) => count + (run('DELETE FROM deals WHERE id = ?', id).changes ? 1 : 0), 0)
-  );
+  const deleted = await transaction(async (tx) => {
+    const { changes } = await tx.run('DELETE FROM deals WHERE id = ANY(?)', ids);
+    return changes;
+  });
 
   cacheClear();
   res.json({ deleted });
@@ -223,11 +230,11 @@ const toggleDealFlag = asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
   const field = req.body?.field === 'is_featured' ? 'is_featured' : 'is_active';
 
-  const existing = get('SELECT * FROM deals WHERE id = ?', Number.isInteger(id) ? id : -1);
+  const existing = await get('SELECT * FROM deals WHERE id = ?', Number.isInteger(id) ? id : -1);
   if (!existing) throw new ApiError(404, 'Deal not found');
 
   const next = existing[field] ? 0 : 1;
-  run(`UPDATE deals SET ${field} = ? WHERE id = ?`, next, id);
+  await run(`UPDATE deals SET ${field} = ? WHERE id = ?`, next, id);
 
   cacheClear();
   res.json({ id, field, value: Boolean(next) });
@@ -247,23 +254,26 @@ const bulkCreateDeals = asyncHandler(async (req, res) => {
   const created = [];
   const errors = [];
 
-  items.forEach((item, index) => {
+  for (const [index, item] of items.entries()) {
     try {
       const d = parseDeal(item);
-      const slug = uniqueSlug(d.title);
-      const { lastInsertRowid } = run(
+      // eslint-disable-next-line no-await-in-loop -- keeps import order predictable
+      const slug = await uniqueSlug(d.title);
+      // eslint-disable-next-line no-await-in-loop
+      const { rows } = await run(
         `INSERT INTO deals
            (title, slug, description, store, affiliate_url, image_url, category, brand,
             price, mrp, rating, coupon_code, is_featured, is_active)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         RETURNING id`,
         d.title, slug, d.description, d.store, d.affiliate_url, d.image_url, d.category,
         d.brand, d.price, d.mrp, d.rating, d.coupon_code, d.is_featured, d.is_active
       );
-      created.push({ id: Number(lastInsertRowid), title: d.title });
+      created.push({ id: rows[0].id, title: d.title });
     } catch (err) {
       errors.push({ row: index + 1, title: item?.title || '(no title)', error: err.message });
     }
-  });
+  }
 
   cacheClear();
   res.status(created.length ? 201 : 400).json({ created: created.length, errors, deals: created });
@@ -271,33 +281,33 @@ const bulkCreateDeals = asyncHandler(async (req, res) => {
 
 /** Dashboard numbers: catalogue size, clicks, and which deals actually earn. */
 const getStats = asyncHandler(async (req, res) => {
-  const totals = get(`
-    SELECT COUNT(*) AS deals,
-           COALESCE(SUM(is_active), 0) AS active,
-           COALESCE(SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END), 0) AS hidden,
-           COALESCE(SUM(is_featured), 0) AS featured,
-           COALESCE(SUM(clicks), 0) AS clicks
+  const totals = await get(`
+    SELECT COUNT(*)::int AS deals,
+           COALESCE(SUM(is_active), 0)::int AS active,
+           COALESCE(SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END), 0)::int AS hidden,
+           COALESCE(SUM(is_featured), 0)::int AS featured,
+           COALESCE(SUM(clicks), 0)::int AS clicks
     FROM deals`);
 
   res.json({
     totals,
     clicks: {
-      today: get(`SELECT COUNT(*) AS n FROM clicks WHERE date(clicked_at) = date('now')`).n,
-      last7: get(`SELECT COUNT(*) AS n FROM clicks WHERE clicked_at >= datetime('now', '-7 days')`).n,
-      last30: get(`SELECT COUNT(*) AS n FROM clicks WHERE clicked_at >= datetime('now', '-30 days')`).n,
+      today: (await get(`SELECT COUNT(*)::int AS n FROM clicks WHERE clicked_at::date = CURRENT_DATE`)).n,
+      last7: (await get(`SELECT COUNT(*)::int AS n FROM clicks WHERE clicked_at >= NOW() - INTERVAL '7 days'`)).n,
+      last30: (await get(`SELECT COUNT(*)::int AS n FROM clicks WHERE clicked_at >= NOW() - INTERVAL '30 days'`)).n,
     },
-    byStore: all(`
-      SELECT store, COUNT(*) AS deals, COALESCE(SUM(clicks), 0) AS clicks
+    byStore: await all(`
+      SELECT store, COUNT(*)::int AS deals, COALESCE(SUM(clicks), 0)::int AS clicks
       FROM deals GROUP BY store ORDER BY clicks DESC`),
-    byCategory: all(`
-      SELECT category, COUNT(*) AS deals, COALESCE(SUM(clicks), 0) AS clicks
+    byCategory: await all(`
+      SELECT category, COUNT(*)::int AS deals, COALESCE(SUM(clicks), 0)::int AS clicks
       FROM deals GROUP BY category ORDER BY clicks DESC, deals DESC LIMIT 8`),
-    topDeals: all(`
+    topDeals: await all(`
       SELECT id, title, slug, store, price, clicks FROM deals
       WHERE clicks > 0 ORDER BY clicks DESC LIMIT 10`),
-    clicksPerDay: all(`
-      SELECT date(clicked_at) AS day, COUNT(*) AS clicks FROM clicks
-      WHERE clicked_at >= datetime('now', '-13 days')
+    clicksPerDay: await all(`
+      SELECT to_char(clicked_at, 'YYYY-MM-DD') AS day, COUNT(*)::int AS clicks FROM clicks
+      WHERE clicked_at >= NOW() - INTERVAL '13 days'
       GROUP BY day ORDER BY day ASC`),
   });
 });
@@ -307,11 +317,16 @@ const getStats = asyncHandler(async (req, res) => {
  * backed up and restored — important on free hosts that wipe the disk on redeploy.
  */
 const exportDeals = asyncHandler(async (req, res) => {
-  const deals = all(
+  const rows = await all(
     `SELECT title, description, store, affiliate_url, image_url, category, brand,
             price, mrp, rating, coupon_code, is_featured, is_active
      FROM deals ORDER BY id ASC`
-  ).map((d) => ({ ...d, is_featured: Boolean(d.is_featured), is_active: Boolean(d.is_active) }));
+  );
+  const deals = rows.map((d) => ({
+    ...d,
+    is_featured: Boolean(d.is_featured),
+    is_active: Boolean(d.is_active),
+  }));
 
   res.set('Content-Disposition', 'attachment; filename="deals-backup.json"');
   res.json(deals);
@@ -319,7 +334,8 @@ const exportDeals = asyncHandler(async (req, res) => {
 
 const getSettings = asyncHandler(async (req, res) => {
   const settings = {};
-  for (const key of SETTING_KEYS) settings[key] = getSetting(key, '');
+  // eslint-disable-next-line no-await-in-loop -- six tiny reads
+  for (const key of SETTING_KEYS) settings[key] = await getSetting(key, '');
   res.json({ settings });
 });
 
@@ -329,8 +345,10 @@ const updateSettings = asyncHandler(async (req, res) => {
 
   for (const key of SETTING_KEYS) {
     if (incoming[key] === undefined) continue;
-    setSetting(key, String(incoming[key]).trim().slice(0, 300));
-    applied[key] = getSetting(key, '');
+    // eslint-disable-next-line no-await-in-loop
+    await setSetting(key, String(incoming[key]).trim().slice(0, 300));
+    // eslint-disable-next-line no-await-in-loop
+    applied[key] = await getSetting(key, '');
   }
 
   cacheClear();

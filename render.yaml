@@ -18,6 +18,10 @@ services:
       # Generated once by Render — you never see or need it.
       - key: JWT_SECRET
         generateValue: true
+      # Postgres connection string from https://neon.tech (free tier).
+      # Required: the instance disk is wiped on every restart, so data cannot live on it.
+      - key: DATABASE_URL
+        sync: false
       # Your admin login. The first boot creates this account automatically.
       - key: ADMIN_EMAIL
         sync: false

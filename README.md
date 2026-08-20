@@ -23,7 +23,7 @@ Visitor clicks "Buy on Amazon"
 
 | Need | What this project uses | Cost |
 |---|---|---|
-| Database | **SQLite** via Node's built-in `node:sqlite` — one file, no server, no install | Free |
+| Database | **Postgres** on Neon's free tier (0.5 GB, no card) — survives restarts and redeploys | Free |
 | Cache | In-process TTL cache (replaces Redis) | Free |
 | API | Node.js + Express | Free |
 | Frontend | React + Vite | Free |
@@ -44,6 +44,13 @@ No Docker, no Postgres, no Redis, no payment gateway, no paid API keys.
 You only need **Node.js 24 or newer** (https://nodejs.org). Check with `node -v`.
 
 ### Start the API
+
+You need a free Postgres database first — about two minutes:
+
+1. Sign up at **https://neon.tech** (GitHub login, no card)
+2. Create a project (region Singapore for India)
+3. Copy the connection string: `postgresql://user:pass@ep-xxx.neon.tech/neondb?sslmode=require`
+4. Put it in `backend/.env` as `DATABASE_URL=...`
 
 ```powershell
 cd "C:\Users\ataha\Desktop\ecommerce-app\backend"
@@ -245,14 +252,14 @@ Push this repo to GitHub, then:
   `SITE_URL` (your frontend URL), `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and your affiliate IDs
 - After the first deploy, run `npm run seed` once (Render → Shell) to create the admin user
 
-**Important free-tier caveat:** the SQLite file lives on the host's disk. Free plans usually give
-you a disk that is **wiped on every redeploy**, and free instances sleep when idle (first request
-after sleep is slow). So:
+**Why the database is not a file:** Render's free instances have an ephemeral filesystem —
+*"without a persistent disk, any changes you make to a service's local files are lost every time
+the service redeploys or restarts"* — and persistent disks are paid-only. A free instance also
+sleeps after ~15 minutes idle and wakes into a fresh container, so a file-based database loses
+every deal roughly daily. Neon Postgres lives outside the instance, so nothing is lost.
 
-- Use **Export backup (JSON)** before a redeploy, and **Bulk import** to restore. Two minutes.
-- Or attach a persistent disk (Render's costs money) and point `DB_FILE` at it.
-- Or self-host: any always-on machine — an old laptop, a Raspberry Pi, or an always-free cloud VM
-  — gives you a permanent disk for free. Set `DB_FILE` to a path on it.
+Free instances still sleep, which only means the first visit after idle takes ~40s. A free uptime
+pinger (cron-job.org) hitting `/health` every 10 minutes avoids that.
 
 ### After deploying, update these
 
@@ -286,9 +293,8 @@ backend/src
 └── utils/          affiliate.js (stores, link validation, tagging), slug.js, jwt.js
 
 backend/db
-├── schema.sql      users, deals, clicks, settings
-├── seed.js         admin user + default settings + 12 demo deals
-└── affiliate.db    your data (created on first run — back it up)
+├── schema.sql      users, deals, clicks, settings (PostgreSQL)
+└── seed.js         admin user + default settings + 12 demo deals
 ```
 
 ### API reference
@@ -326,7 +332,8 @@ Admin (send `Authorization: Bearer <token>` from `POST /api/auth/login`):
 
 | Problem | Fix |
 |---|---|
-| `node:sqlite` not found | Node is too old. Install Node 24+ and check `node -v` |
+| `DATABASE_URL is missing` | Add your Neon connection string to `backend/.env` |
+| `Could not reach Postgres` | Check the string is complete and ends with `?sslmode=require` |
 | Website shows no deals / network error | Is the API window still running on port 5000? Does `frontend/.env` have the right `VITE_API_URL`? |
 | Login fails | Locally: `npm run seed` in `backend/` prints the email/password it created. Deployed: the account comes from `ADMIN_EMAIL` / `ADMIN_PASSWORD` in the host's env vars |
 | "Links from … are not allowed" | Only Amazon/Flipkart/Meesho or EarnKaro/INRDeals/Cuelinks links are accepted. Use the store's real product URL |
