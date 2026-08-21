@@ -1,0 +1,110 @@
+// The "AI finder": given a search term ("t shirt") it goes and finds real products on
+// Amazon / Flipkart / Meesho and hands back deal drafts for the admin to approve.
+//
+// Two things keep this from being a hallucination machine:
+//   1. Whichever provider is used, the model gets a web search restricted to the store
+//      domains, so every link it proposes is one it actually saw in a search result.
+//   2. Nothing it returns is written to the database. suggest() is read-only — the admin
+//      approves each card, and the approved ones go through the same /deals/bulk
+//      validation that hand-typed deals already go through.
+//
+// Two providers are supported. Groq is free and is preferred when both keys are present;
+// set AI_PROVIDER to pin one explicitly.
+const groq = require('./ai/groq');
+const anthropic = require('./ai/anthropic');
+const { MAX_SUGGESTIONS } = require('./ai/shared');
+
+// Order matters: the free provider is tried first.
+const PROVIDERS = [groq, anthropic];
+
+/**
+ * Picks the provider to use. An explicit AI_PROVIDER wins even if its key is missing, so
+ * a typo in the dashboard produces a clear "add this key" message rather than silently
+ * billing the other provider.
+ */
+function activeProvider() {
+  const pinned = String(process.env.AI_PROVIDER || '').trim().toLowerCase();
+  if (pinned) return PROVIDERS.find((p) => p.key === pinned) || null;
+  return PROVIDERS.find((p) => p.isConfigured()) || null;
+}
+
+function isConfigured() {
+  const provider = activeProvider();
+  return Boolean(provider && provider.isConfigured());
+}
+
+/** What the admin page needs to render either the finder or a "how to switch it on" card. */
+function describe() {
+  const provider = activeProvider();
+  const pinned = String(process.env.AI_PROVIDER || '').trim().toLowerCase();
+
+  if (!provider) {
+    return {
+      configured: false,
+      maxSuggestions: MAX_SUGGESTIONS,
+      // No key anywhere: point at the free option.
+      provider: groq.key,
+      providerLabel: groq.label,
+      envKey: groq.envKey,
+      consoleUrl: groq.consoleUrl,
+      free: true,
+      unknownProvider: pinned || null,
+      options: PROVIDERS.map((p) => ({
+        provider: p.key,
+        label: p.label,
+        envKey: p.envKey,
+        consoleUrl: p.consoleUrl,
+        free: p.free,
+      })),
+    };
+  }
+
+  return {
+    configured: provider.isConfigured(),
+    maxSuggestions: MAX_SUGGESTIONS,
+    provider: provider.key,
+    providerLabel: provider.label,
+    envKey: provider.envKey,
+    consoleUrl: provider.consoleUrl,
+    free: provider.free,
+    model: provider.model,
+    options: PROVIDERS.map((p) => ({
+      provider: p.key,
+      label: p.label,
+      envKey: p.envKey,
+      consoleUrl: p.consoleUrl,
+      free: p.free,
+    })),
+  };
+}
+
+/**
+ * Runs the finder. Returns { products, note, searches, model } — raw model output, still
+ * to be validated by the caller. Throws with a `statusCode` on a configuration problem.
+ */
+async function suggest(options) {
+  const provider = activeProvider();
+
+  if (!provider) {
+    const pinned = process.env.AI_PROVIDER;
+    const err = new Error(
+      `AI_PROVIDER is set to "${pinned}", which is not a provider. Use "groq" or ` +
+        '"anthropic", or remove it to pick automatically.'
+    );
+    err.statusCode = 500;
+    throw err;
+  }
+
+  if (!provider.isConfigured()) {
+    const err = new Error(
+      `The AI finder needs an API key. Add ${provider.envKey} to your environment ` +
+        `(get one at ${provider.consoleUrl}) and restart the API.`
+    );
+    err.statusCode = 503;
+    throw err;
+  }
+
+  return provider.suggest(options);
+}
+
+module.exports = { isConfigured, describe, suggest, MAX_SUGGESTIONS };

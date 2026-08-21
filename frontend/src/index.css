@@ -324,3 +324,56 @@ td.actions { white-space: nowrap; display: flex; gap: 6px; }
   .search-inline { order: 3; max-width: none; flex-basis: 100%; }
   .deal-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
 }
+
+/* ── Admin: AI finder ──────────────────────────────────────────────────────── */
+.code-block {
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 9px 11px; margin: 8px 0;
+  font-family: ui-monospace, Consolas, monospace; font-size: 0.82rem;
+  overflow-x: auto;
+}
+
+.suggest-grid {
+  display: grid; gap: 14px; margin-top: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+/* Unapproved cards are deliberately faded: at a glance you see what is going live. */
+.suggest-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column;
+  box-shadow: var(--shadow); opacity: 0.72;
+  transition: opacity 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.suggest-card.approved {
+  opacity: 1; border-color: var(--accent); box-shadow: var(--shadow-lg);
+}
+
+.suggest-thumb { position: relative; aspect-ratio: 4 / 3; background: var(--surface-2); }
+.suggest-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.suggest-thumb .no-img {
+  width: 100%; height: 100%; display: grid; place-items: center;
+  color: var(--text-dim); font-size: 0.8rem;
+}
+
+.suggest-body { padding: 12px 13px 13px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.suggest-title { font-size: 0.92rem; line-height: 1.35; }
+
+.pill-conf-high { background: var(--success-soft); color: var(--success); }
+.pill-conf-medium { background: rgba(183, 121, 31, 0.13); color: var(--warning); }
+.pill-conf-low { background: var(--danger-soft); color: var(--danger); }
+
+.suggest-warn {
+  margin: 0; font-size: 0.78rem; line-height: 1.4; color: var(--warning);
+}
+
+.suggest-link { font-size: 0.8rem; font-weight: 600; }
+
+.suggest-edit {
+  border-top: 1px solid var(--border); padding-top: 10px; margin-top: 2px;
+}
+.suggest-edit label { font-size: 0.75rem; margin-bottom: 3px; }
+.suggest-edit input, .suggest-edit textarea { font-size: 0.82rem; margin-bottom: 8px; }
+
+.suggest-actions { display: flex; gap: 6px; margin-top: auto; padding-top: 4px; }
+.suggest-actions .btn { flex: 1; justify-content: center; }

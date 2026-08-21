@@ -4,7 +4,9 @@ A complete, working affiliate/deals website. You publish product deals, visitors
 **Buy on Amazon / Flipkart / Meesho**, and every click is tagged with your affiliate ID and
 counted — so you earn commission and can see which deals actually work.
 
-You **add and remove items yourself** from a built-in admin panel. No coding needed after setup.
+You **add and remove items yourself** from a built-in admin panel — by hand, or by letting the
+**AI finder** search the stores and propose deals you approve one by one. No coding needed
+after setup.
 
 ```
 Visitor clicks "Buy on Amazon"
@@ -31,11 +33,14 @@ Visitor clicks "Buy on Amazon"
 | Product images | Any image URL (the store's own product image, or `picsum.photos` placeholders) | Free |
 | Frontend hosting | Vercel or Netlify free tier (config files included) | Free |
 | API hosting | Render / Railway free tier, or your own PC | Free |
+| Adding items with AI *(optional)* | **Groq** — searches the stores and proposes deals you approve (Claude also supported) | Free, no card |
 | Amazon commission | Amazon Associates India | Free to join |
 | Flipkart commission | Flipkart Affiliate, or EarnKaro | Free to join |
 | Meesho commission | Meesho partner programme, or EarnKaro / INRDeals | Free to join |
 
-No Docker, no Postgres, no Redis, no payment gateway, no paid API keys.
+No Docker, no Redis, no payment gateway, no paid API keys. Even the **AI finder**
+(Admin → ✨ AI finder), which searches the stores and proposes deals for you to approve, runs
+on Groq's free tier — no credit card. Leave its API key blank and the tab simply stays off.
 
 ---
 
@@ -128,6 +133,100 @@ Three ways, all in the **Deals** tab table:
   affiliate ID is being attached.
 - Search box, store filter, status filter (live / hidden / featured) and sorting, so a large
   catalogue stays manageable.
+
+### Let the AI find items for you (AI finder)
+
+The **✨ AI finder** tab does the searching for you. Pick a category, type what you want
+(`t shirt`, `running shoes under 2000`, `boAt earbuds`), choose which stores to search, and
+press **Find products**. It runs real web searches against Amazon, Flipkart and Meesho and
+comes back with a grid of suggestions.
+
+**Nothing goes on your site until you say so.** Every suggestion is a card you either
+approve or throw away:
+
+- **Approve / ✓ Approved** — tick the ones you want. Approved cards light up; the rest stay
+  greyed out.
+- **Edit** — fix the title, price, MRP, category, image or description before it goes live.
+- **Remove** — bin a suggestion you do not want.
+- **Open the real product page ↗** — check the link actually works before approving. Worth
+  doing for anything marked *low confidence*.
+- **Add N to my site** — publishes only the approved ones.
+
+Each card is labelled so you can judge it at a glance:
+
+| Label | Meaning |
+|---|---|
+| `high confidence` | It saw this exact product page and its price |
+| `medium confidence` | Page confirmed, the price may have moved since |
+| `low confidence` | Unsure about the link or the price — open it before approving |
+| `already on site` | You already have a deal pointing at this product. Starts unticked |
+
+It also tells you how many results it **threw away before you saw them** and why — search
+pages, links to sites you cannot earn from, duplicates, missing prices. Expand that line if
+a search comes back thinner than you expected.
+
+**Switching it on (Render + GitHub — no local files to edit).** The finder needs one API
+key. You have two choices:
+
+| | Free tier | Cost | Quality |
+|---|---|---|---|
+| **Groq** *(recommended)* | Yes — no credit card | Free | Good |
+| **Claude** | No | ~a few cents per search | Better |
+
+**Get a free Groq key (2 minutes):**
+
+1. Go to **https://console.groq.com** and sign in with Google or GitHub. No card is asked for.
+2. Open **API Keys** → **Create API Key**, name it `dealdost`, and **copy it now** — Groq
+   shows it once. It starts with `gsk_`.
+
+**Add it to Render:**
+
+1. Render dashboard → your **dealdost** service → **Environment** in the left sidebar.
+2. **Add Environment Variable**:
+   - Key: `GROQ_API_KEY`
+   - Value: paste the `gsk_...` key
+3. **Save changes**. Render redeploys by itself — about a minute. When it goes live, reload
+   your site, sign in, and **Admin → ✨ AI finder** is ready.
+
+That is the whole job. Your key lives only in Render's environment settings — it is never in
+your GitHub repo, and you never touch `.env` on your PC. `.env` is in `.gitignore` and stays
+that way; that file is only for running the site locally.
+
+> **Never paste an API key into a file you commit.** If a key ever lands in a commit, treat
+> it as public: delete it in the Groq console, create a new one, and update Render. Rotating
+> a key is free and takes a minute.
+
+**To use Claude instead**, add `ANTHROPIC_API_KEY` in the same place instead of
+`GROQ_API_KEY`. If you set both, Groq wins because it is free — add `AI_PROVIDER=anthropic`
+to override that.
+
+**Pushing this update to GitHub.** From the project folder:
+
+```powershell
+cd "C:\Users\ataha\Desktop\ecommerce-app"
+git add .
+git commit -m "Add the AI finder (Groq or Claude)"
+git push
+```
+
+If Render is connected to your GitHub repo it deploys the push automatically. You can add
+`GROQ_API_KEY` before or after pushing — until the key is there, the tab just explains how
+to add it.
+
+**Worth knowing:**
+
+- Prices and stock change constantly. The finder records the price it saw; check anything
+  that matters before publishing, and re-check your catalogue periodically.
+- Links are only accepted if they point at an actual product page on a store you can earn
+  from — the same check `/go/:id` enforces. A made-up link cannot reach your site.
+- If no product image was found, a placeholder is used. Paste a real image URL in **Edit**
+  for a better-looking card.
+- Searches are capped at 20 per 10 minutes. On Groq's free tier the underlying limits are
+  about 30 requests/minute and 250 searches/day — generous for adding deals by hand, and
+  you are told plainly if you hit them.
+- Groq works by searching first (`groq/compound`) and then formatting what it found
+  (`openai/gpt-oss-120b`). The formatting step has no web access at all, so it cannot
+  invent a product — it can only reshape what the search actually returned.
 
 ### Bulk import and backup
 
@@ -323,6 +422,8 @@ Admin (send `Authorization: Bearer <token>` from `POST /api/auth/login`):
 | PATCH | `/api/admin/deals/:id/toggle` | Body `{ "field": "is_active" }` or `"is_featured"` |
 | POST | `/api/admin/deals/bulk` | Import an array of deals |
 | GET | `/api/admin/deals/export` | Download the catalogue as JSON |
+| GET | `/api/admin/ai/status` | Which AI provider is active, or which key to add |
+| POST | `/api/admin/ai/suggest` | **Suggest** deals to approve — body `{ "query", "category", "stores", "count" }`. Read-only: writes nothing |
 | GET | `/api/admin/stats` | Dashboard + click analytics |
 | GET/PUT | `/api/admin/settings` | Site name, tagline, affiliate IDs |
 

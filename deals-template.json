@@ -1,0 +1,37 @@
+[
+  {
+    "title": "REPLACE ME - exact product name from the store page",
+    "affiliate_url": "https://www.amazon.in/dp/REPLACE_WITH_REAL_ASIN",
+    "image_url": "https://REPLACE-with-the-product-image-address.jpg",
+    "price": 999,
+    "mrp": 1999,
+    "category": "Audio",
+    "brand": "Brand name",
+    "rating": 4.2,
+    "description": "One honest line: what makes this a good deal right now.",
+    "is_featured": true
+  },
+  {
+    "title": "REPLACE ME - Flipkart product",
+    "affiliate_url": "https://www.flipkart.com/REPLACE-product-slug/p/REPLACE_ITM_ID",
+    "image_url": "https://REPLACE-with-the-product-image-address.jpg",
+    "price": 1499,
+    "mrp": 2999,
+    "category": "Mobiles",
+    "brand": "Brand name",
+    "rating": 4.1,
+    "description": "One honest line about the deal.",
+    "coupon_code": ""
+  },
+  {
+    "title": "REPLACE ME - Meesho product",
+    "affiliate_url": "https://www.meesho.com/REPLACE-product-slug/p/REPLACE_ID",
+    "image_url": "https://REPLACE-with-the-product-image-address.jpg",
+    "price": 499,
+    "mrp": 1299,
+    "category": "Fashion",
+    "brand": "",
+    "rating": 3.9,
+    "description": "One honest line about the deal."
+  }
+]
