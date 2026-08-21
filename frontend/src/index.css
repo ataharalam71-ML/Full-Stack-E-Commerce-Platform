@@ -377,3 +377,26 @@ td.actions { white-space: nowrap; display: flex; gap: 6px; }
 
 .suggest-actions { display: flex; gap: 6px; margin-top: auto; padding-top: 4px; }
 .suggest-actions .btn { flex: 1; justify-content: center; }
+
+/* ── Admin: product finder ─────────────────────────────────────────────────── */
+.tabs-inner { margin: 0 0 16px; border-bottom: 1px solid var(--border); }
+.tabs-inner button { font-size: 0.88rem; padding: 8px 14px; }
+
+.chip-warn {
+  margin-left: 5px; font-weight: 800; color: var(--warning);
+}
+
+/* Per-store outcome strip: a blocked store is an expected state, not an error. */
+.store-reports {
+  display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px;
+}
+.store-report {
+  display: flex; gap: 6px; align-items: baseline;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 999px; padding: 4px 12px; font-size: 0.78rem;
+}
+.store-report span { color: var(--text-dim); }
+.store-report.blocked {
+  background: rgba(183, 121, 31, 0.1); border-color: rgba(183, 121, 31, 0.3);
+}
+.store-report.blocked span { color: var(--warning); }

@@ -4,9 +4,9 @@ A complete, working affiliate/deals website. You publish product deals, visitors
 **Buy on Amazon / Flipkart / Meesho**, and every click is tagged with your affiliate ID and
 counted — so you earn commission and can see which deals actually work.
 
-You **add and remove items yourself** from a built-in admin panel — by hand, or by letting the
-**AI finder** search the stores and propose deals you approve one by one. No coding needed
-after setup.
+You **add and remove items yourself** from a built-in admin panel — by hand, or by searching
+the stores from inside the panel and pressing **Add** on the results you want. No coding
+needed after setup, and no AI or API keys anywhere.
 
 ```
 Visitor clicks "Buy on Amazon"
@@ -33,14 +33,14 @@ Visitor clicks "Buy on Amazon"
 | Product images | Any image URL (the store's own product image, or `picsum.photos` placeholders) | Free |
 | Frontend hosting | Vercel or Netlify free tier (config files included) | Free |
 | API hosting | Render / Railway free tier, or your own PC | Free |
-| Adding items with AI *(optional)* | **Groq** — searches the stores and proposes deals you approve (Claude also supported) | Free, no card |
+| Finding items to add | Built-in finder — searches the stores and reads product pages | Free, no signup |
 | Amazon commission | Amazon Associates India | Free to join |
 | Flipkart commission | Flipkart Affiliate, or EarnKaro | Free to join |
 | Meesho commission | Meesho partner programme, or EarnKaro / INRDeals | Free to join |
 
-No Docker, no Redis, no payment gateway, no paid API keys. Even the **AI finder**
-(Admin → ✨ AI finder), which searches the stores and proposes deals for you to approve, runs
-on Groq's free tier — no credit card. Leave its API key blank and the tab simply stays off.
+No Docker, no Redis, no payment gateway, no API keys, no AI. **Find products**
+(Admin → 🔍 Find products) searches the stores and reads their product pages directly, so
+there is nothing to sign up for and nothing to configure.
 
 ---
 
@@ -134,99 +134,86 @@ Three ways, all in the **Deals** tab table:
 - Search box, store filter, status filter (live / hidden / featured) and sorting, so a large
   catalogue stays manageable.
 
-### Let the AI find items for you (AI finder)
+### Find items without typing them (Find products)
 
-The **✨ AI finder** tab does the searching for you. Pick a category, type what you want
-(`t shirt`, `running shoes under 2000`, `boAt earbuds`), choose which stores to search, and
-press **Find products**. It runs real web searches against Amazon, Flipkart and Meesho and
-comes back with a grid of suggestions.
+The **🔍 Find products** tab does the typing for you. There is no AI and no API key
+anywhere in it — it reads the stores' own pages and shows you what it found. It has two
+modes, and both end in the same review grid where you press **Add** or **Remove** on each
+card.
 
-**Nothing goes on your site until you say so.** Every suggestion is a card you either
-approve or throw away:
+#### Mode 1 — Search the stores
 
-- **Approve / ✓ Approved** — tick the ones you want. Approved cards light up; the rest stay
-  greyed out.
-- **Edit** — fix the title, price, MRP, category, image or description before it goes live.
-- **Remove** — bin a suggestion you do not want.
-- **Open the real product page ↗** — check the link actually works before approving. Worth
-  doing for anything marked *low confidence*.
-- **Add N to my site** — publishes only the approved ones.
+Pick a category, type plain keywords (`cotton t shirt`), choose the stores, press
+**Search**. Results appear as cards with the real title, price, MRP, discount, brand,
+rating and image taken straight from the store's listing.
 
-Each card is labelled so you can judge it at a glance:
+Which stores this works with is not up to us — each store decides whether it answers a
+server:
 
-| Label | Meaning |
-|---|---|
-| `high confidence` | It saw this exact product page and its price |
-| `medium confidence` | Page confirmed, the price may have moved since |
-| `low confidence` | Unsure about the link or the price — open it before approving |
-| `already on site` | You already have a deal pointing at this product. Starts unticked |
+| Store | Search from the server | Why |
+|---|---|---|
+| **Flipkart** | ✅ Works | Serves the full listing as HTML |
+| **Amazon** | ⚠️ Sometimes | Often answers with a bot check and a note asking automated users to use their API instead |
+| **Meesho** | ❌ No | Blocks servers outright, and renders results in the browser |
 
-It also tells you how many results it **threw away before you saw them** and why — search
-pages, links to sites you cannot earn from, duplicates, missing prices. Expand that line if
-a search comes back thinner than you expected.
+A store that will not answer is reported on its own row — *"Meesho: blocks server-side
+search — use Paste links instead"* — so you are never left guessing whether your keywords
+were bad. The other stores still return normally.
 
-**Switching it on (Render + GitHub — no local files to edit).** The finder needs one API
-key. You have two choices:
+#### Mode 2 — Paste links (works everywhere)
 
-| | Free tier | Cost | Quality |
-|---|---|---|---|
-| **Groq** *(recommended)* | Yes — no credit card | Free | Good |
-| **Claude** | No | ~a few cents per search | Better |
+This is the reliable one, and it covers every store including Amazon and Meesho.
 
-**Get a free Groq key (2 minutes):**
+1. Click the store link under the results (**Amazon ↗ · Flipkart ↗ · Meesho ↗**) — or just
+   search the store in your own browser as usual.
+2. Copy the links of the products you want.
+3. Switch to **Paste links**, paste them one per line, press **Read links**.
 
-1. Go to **https://console.groq.com** and sign in with Google or GitHub. No card is asked for.
-2. Open **API Keys** → **Create API Key**, name it `dealdost`, and **copy it now** — Groq
-   shows it once. It starts with `gsk_`.
+The server opens each product page and reads the product data the store publishes in it —
+the same structured data Google reads to show prices in search results. Title, price, MRP,
+brand, rating and image come back filled in. Up to 25 links at a time.
 
-**Add it to Render:**
+This works because a *product* page is the page a store wants machines to read; a *search*
+page is not.
 
-1. Render dashboard → your **dealdost** service → **Environment** in the left sidebar.
-2. **Add Environment Variable**:
-   - Key: `GROQ_API_KEY`
-   - Value: paste the `gsk_...` key
-3. **Save changes**. Render redeploys by itself — about a minute. When it goes live, reload
-   your site, sign in, and **Admin → ✨ AI finder** is ready.
+#### The review grid
 
-That is the whole job. Your key lives only in Render's environment settings — it is never in
-your GitHub repo, and you never touch `.env` on your PC. `.env` is in `.gitignore` and stays
-that way; that file is only for running the site locally.
+Every card, from either mode, gives you:
 
-> **Never paste an API key into a file you commit.** If a key ever lands in a commit, treat
-> it as public: delete it in the Groq console, create a new one, and update Render. Rotating
-> a key is free and takes a minute.
+- **Add / ✓ Added** — tick what you want. Added cards light up; the rest stay greyed out.
+- **Edit** — fix the title, price, MRP, category, image or description before publishing.
+- **Remove** — bin a result you do not want.
+- **Open the product page ↗** — check the link before publishing.
+- **Add N to my site** — publishes only the ticked ones.
 
-**To use Claude instead**, add `ANTHROPIC_API_KEY` in the same place instead of
-`GROQ_API_KEY`. If you set both, Groq wins because it is free — add `AI_PROVIDER=anthropic`
-to override that.
+Cards are labelled `already on site` (and start unticked) when a deal already points at
+that product, so you cannot publish the same thing twice. Anything thrown away before you
+saw it is listed under **"N results thrown away"** with the reason — a category page
+instead of a product, a link to a site you cannot earn from, a duplicate, a missing price.
 
-**Pushing this update to GitHub.** From the project folder:
+Prices and MRPs are checked for sanity: an MRP below the selling price is dropped, and a
+discount too large to be plausible is flagged for you to confirm.
 
-```powershell
-cd "C:\Users\ataha\Desktop\ecommerce-app"
-git add .
-git commit -m "Add the AI finder (Groq or Claude)"
-git push
-```
+#### Still prefer typing it in?
 
-If Render is connected to your GitHub repo it deploys the push automatically. You can add
-`GROQ_API_KEY` before or after pushing — until the key is there, the tab just explains how
-to add it.
+The **Deals** tab's form is unchanged and always available — paste a link, fill in the
+fields, done. The finder is a shortcut, not a replacement.
 
-**Worth knowing:**
+#### Worth knowing
 
-- Prices and stock change constantly. The finder records the price it saw; check anything
-  that matters before publishing, and re-check your catalogue periodically.
-- Links are only accepted if they point at an actual product page on a store you can earn
-  from — the same check `/go/:id` enforces. A made-up link cannot reach your site.
-- If no product image was found, a placeholder is used. Paste a real image URL in **Edit**
-  for a better-looking card.
-- Searches are capped at 20 per 10 minutes. On Groq's free tier the underlying limits are
-  about 30 requests/minute and 250 searches/day — generous for adding deals by hand, and
-  you are told plainly if you hit them.
-- Groq works by searching first (`groq/compound`) and then formatting what it found
-  (`openai/gpt-oss-120b`). The formatting step has no web access at all, so it cannot
-  invent a product — it can only reshape what the search actually returned.
+- **Prices change constantly.** The finder records what the page said at that moment.
+  Re-check anything important before publishing, and refresh your catalogue periodically.
+- **On Render, expect Amazon to be blocked more often than on your own PC.** Stores treat
+  datacenter addresses more suspiciously than home connections. Paste links is unaffected.
+- **This reads public product pages; it is not an official data feed.** The stores' terms
+  discourage automated access, and Amazon's block message points automated users at their
+  Product Advertising API. If you get PA-API access (an approved Associates account with
+  qualifying sales), that is the sanctioned way to get Amazon search results in-app — ask
+  and it can be wired in as another source.
+- The finder is deliberately unhurried: pages are cached for ten minutes, requests to the
+  same store are spaced out, and searches are capped at 60 per ten minutes.
+- Store layouts change. If one store suddenly returns nothing while others work, its
+  parser needs updating — the per-store row will tell you which one.
 
 ### Bulk import and backup
 
@@ -422,8 +409,9 @@ Admin (send `Authorization: Bearer <token>` from `POST /api/auth/login`):
 | PATCH | `/api/admin/deals/:id/toggle` | Body `{ "field": "is_active" }` or `"is_featured"` |
 | POST | `/api/admin/deals/bulk` | Import an array of deals |
 | GET | `/api/admin/deals/export` | Download the catalogue as JSON |
-| GET | `/api/admin/ai/status` | Which AI provider is active, or which key to add |
-| POST | `/api/admin/ai/suggest` | **Suggest** deals to approve — body `{ "query", "category", "stores", "count" }`. Read-only: writes nothing |
+| GET | `/api/admin/finder/status` | Which stores can be searched from the server |
+| POST | `/api/admin/finder/search` | **Search** the stores — body `{ "query", "category", "stores", "limit" }`. Read-only |
+| POST | `/api/admin/finder/resolve` | **Read** pasted product links — body `{ "urls", "category" }`. Read-only |
 | GET | `/api/admin/stats` | Dashboard + click analytics |
 | GET/PUT | `/api/admin/settings` | Site name, tagline, affiliate IDs |
 

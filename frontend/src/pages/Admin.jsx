@@ -3,7 +3,7 @@ import api, { errMsg } from '../api';
 import DealForm from '../components/admin/DealForm';
 import DealTable from '../components/admin/DealTable';
 import BulkImport from '../components/admin/BulkImport';
-import AiFinder from '../components/admin/AiFinder';
+import ProductFinder from '../components/admin/ProductFinder';
 import Analytics from '../components/admin/Analytics';
 import SettingsPanel from '../components/admin/SettingsPanel';
 import { useAuth } from '../context/AuthContext';
@@ -11,7 +11,7 @@ import { useSite } from '../context/SiteContext';
 
 const TABS = [
   { key: 'deals', label: 'Deals' },
-  { key: 'ai', label: '✨ AI finder' },
+  { key: 'find', label: '🔍 Find products' },
   { key: 'import', label: 'Bulk import' },
   { key: 'analytics', label: 'Analytics' },
   { key: 'settings', label: 'Settings' },
@@ -246,7 +246,7 @@ export default function Admin() {
         </div>
       )}
 
-      {tab === 'ai' && <AiFinder categories={categories} onImported={refresh} />}
+      {tab === 'find' && <ProductFinder categories={categories} onImported={refresh} />}
       {tab === 'import' && <BulkImport onImported={refresh} />}
       {tab === 'analytics' && <Analytics stats={stats} />}
       {tab === 'settings' && <SettingsPanel />}

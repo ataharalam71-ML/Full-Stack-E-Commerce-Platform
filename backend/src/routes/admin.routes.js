@@ -13,19 +13,23 @@ const {
   getSettings,
   updateSettings,
 } = require('../controllers/admin.controller');
-const { aiStatus, suggestDeals } = require('../controllers/ai.controller');
+const {
+  finderStatus,
+  searchProducts,
+  resolveLinks,
+} = require('../controllers/finder.controller');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
-// The AI finder calls a paid API and takes ~30s per search, so it gets its own tight
-// bucket - a stuck "Search" button must not be able to run up a bill.
-const aiLimiter = rateLimit({
+// The finder makes outbound requests to the stores, so it gets its own bucket: a stuck
+// "Search" button must not be able to hammer Amazon or Flipkart on our behalf.
+const finderLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
-  limit: 20,
+  limit: 60,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many AI searches. Wait a few minutes and try again.' },
+  message: { error: 'Too many searches. Wait a minute and try again.' },
 });
 
 // Everything below needs a valid admin JWT.
@@ -42,8 +46,9 @@ router.put('/deals/:id', updateDeal);
 router.patch('/deals/:id/toggle', toggleDealFlag);
 router.delete('/deals/:id', deleteDeal);
 
-router.get('/ai/status', aiStatus);
-router.post('/ai/suggest', aiLimiter, suggestDeals);
+router.get('/finder/status', finderStatus);
+router.post('/finder/search', finderLimiter, searchProducts);
+router.post('/finder/resolve', finderLimiter, resolveLinks);
 
 router.get('/settings', getSettings);
 router.put('/settings', updateSettings);

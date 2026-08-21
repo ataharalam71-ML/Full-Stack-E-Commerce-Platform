@@ -37,11 +37,3 @@ services:
         sync: false
       - key: MEESHO_TAG
         sync: false
-      # Optional: switches on Admin -> AI finder, which searches the stores and
-      # proposes deals for you to approve. Leave blank to hide that tab.
-      # Free, no card: https://console.groq.com/keys
-      - key: GROQ_API_KEY
-        sync: false
-      # Paid alternative to GROQ_API_KEY, better results. Leave blank if using Groq.
-      - key: ANTHROPIC_API_KEY
-        sync: false
