@@ -39,11 +39,10 @@ async function ensureAdmin({ quiet = false } = {}) {
 async function ensureDefaultSettings({ quiet = false } = {}) {
   const defaults = {
     site_name: 'DealDost',
-    site_tagline: 'Handpicked deals from Amazon, Flipkart & Meesho',
+    site_tagline: 'Handpicked deals from Amazon & Flipkart',
     contact_email: process.env.ADMIN_EMAIL || '',
     amazon_tag: process.env.AMAZON_TAG || '',
     flipkart_affid: process.env.FLIPKART_AFFID || '',
-    meesho_tag: process.env.MEESHO_TAG || '',
   };
 
   for (const [key, value] of Object.entries(defaults)) {

@@ -17,7 +17,6 @@
   --warning: #b7791f;
   --amazon: #ff9900;
   --flipkart: #2874f0;
-  --meesho: #f43397;
   --radius: 12px;
   --radius-sm: 8px;
   --shadow: 0 1px 2px rgba(16, 22, 31, 0.06), 0 8px 24px rgba(16, 22, 31, 0.05);
@@ -186,7 +185,6 @@ p { line-height: 1.65; color: var(--text-dim); }
 .btn-buy { color: #fff; border: none; font-weight: 700; }
 .btn-buy.amazon { background: var(--amazon); }
 .btn-buy.flipkart { background: var(--flipkart); }
-.btn-buy.meesho { background: var(--meesho); }
 .btn-buy:hover { filter: brightness(0.93); color: #fff; }
 .btn-ghost { background: none; border-color: transparent; color: var(--text-dim); }
 .btn-ghost:hover { background: var(--surface-2); color: var(--text); }
@@ -257,7 +255,6 @@ td.actions { white-space: nowrap; display: flex; gap: 6px; }
 .pill-featured { background: var(--accent-soft); color: var(--accent); }
 .pill-amazon { background: rgba(255, 153, 0, 0.14); color: #b36b00; }
 .pill-flipkart { background: rgba(40, 116, 240, 0.13); color: #1d5bc0; }
-.pill-meesho { background: rgba(244, 51, 151, 0.12); color: #c01f70; }
 
 /* ── Admin layout ──────────────────────────────────────────────────────────── */
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 20px; overflow-x: auto; }
@@ -401,29 +398,16 @@ td.actions { white-space: nowrap; display: flex; gap: 6px; }
 }
 .store-report.blocked span { color: var(--warning); }
 
-/* ── Admin: the bookmarklet ────────────────────────────────────────────────── */
-.bookmarklet-box {
-  display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
-  justify-content: space-between;
-  background: var(--accent-soft); border: 1px dashed var(--accent);
-  border-radius: var(--radius); padding: 14px 16px; margin-bottom: 16px;
+/* Shopper-facing notes on a deal page: what they get, not what we get. */
+.buy-notes {
+  list-style: none; margin: 4px 0 0; padding: 0;
+  display: flex; flex-direction: column; gap: 7px;
 }
-
-/* Styled as a button because it is dragged, not clicked. */
-.bookmarklet-btn {
-  display: inline-block; white-space: nowrap; cursor: grab;
-  background: var(--accent); color: #fff; font-weight: 700; font-size: 0.92rem;
-  padding: 11px 20px; border-radius: var(--radius-sm);
-  box-shadow: var(--shadow); text-decoration: none;
+.buy-notes li {
+  position: relative; padding-left: 22px;
+  color: var(--text-dim); font-size: 0.88rem; line-height: 1.5;
 }
-.bookmarklet-btn:hover { background: var(--accent-hover); color: #fff; }
-.bookmarklet-btn:active { cursor: grabbing; }
-
-.tight-list { margin: 6px 0 0; padding-left: 20px; line-height: 1.65; }
-.tight-list li { margin-bottom: 3px; }
-
-kbd {
-  background: var(--surface); border: 1px solid var(--border-strong);
-  border-bottom-width: 2px; border-radius: 4px;
-  padding: 1px 5px; font-size: 0.8em; font-family: inherit; font-weight: 600;
+.buy-notes li::before {
+  content: '✓'; position: absolute; left: 0; top: -1px;
+  color: var(--success); font-weight: 800;
 }

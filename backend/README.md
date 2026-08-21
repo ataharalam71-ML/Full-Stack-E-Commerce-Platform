@@ -30,7 +30,7 @@ shows stale data.
 ## Data model (`db/schema.sql`)
 
 - **users** — admins only. Visitors never register.
-- **deals** — the catalogue. `store` is constrained to `amazon | flipkart | meesho`;
+- **deals** — the catalogue. `store` is constrained to `amazon | flipkart`;
   `is_active` hides a deal without deleting it; `clicks` is a running counter.
 - **clicks** — one row per click-through (deal, time, referrer, user-agent). No personal data,
   no cookies. Cascades on deal delete.
@@ -41,12 +41,12 @@ shows stale data.
 
 One place decides everything store-specific:
 
-- `validateAffiliateUrl()` — accepts only `http(s)` links to Amazon/Flipkart/Meesho or to the
+- `validateAffiliateUrl()` — accepts only `http(s)` links to Amazon/Flipkart or to the
   EarnKaro / INRDeals / Cuelinks / BitLi / Wishlink networks. This is what keeps `/go/:id` from
   becoming an open redirect that spammers can use.
 - `detectStore()` — infers the store from the host, so the admin form can leave it blank.
 - `withAffiliateTag()` — adds your ID (`tag` for Amazon, `affid` for Flipkart, `utm_source` for
-  Meesho) plus a per-deal sub-ID (`ascsubtag` / `affExtParam1`) so store reports show which deal
+  plus a per-deal sub-ID (`ascsubtag` / `affExtParam1`) so store reports show which deal
   drove the sale. It never overwrites a parameter the link already has, and it leaves network
   shortlinks completely alone since their tracking is already baked in.
 

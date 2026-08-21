@@ -39,19 +39,6 @@ const DEMO_DEALS = [
     is_featured: 1,
   },
   {
-    title: 'Cotton Anarkali Kurta Set',
-    description:
-      'Printed cotton kurta with palazzo and dupatta. Meesho pricing on ethnic wear is hard to beat.',
-    store: 'meesho',
-    affiliate_url: 'https://www.meesho.com/cotton-anarkali-kurta-set/p/abc123',
-    category: 'Fashion',
-    brand: 'Anouk',
-    price: 549,
-    mrp: 1499,
-    rating: 3.9,
-    is_featured: 1,
-  },
-  {
     title: 'Noise ColorFit Pro 5 Smartwatch',
     description: '1.85 inch AMOLED, Bluetooth calling, 7-day battery. Good gifting price point.',
     store: 'amazon',
@@ -73,18 +60,6 @@ const DEMO_DEALS = [
     price: 2799,
     mrp: 4295,
     rating: 4.2,
-  },
-  {
-    title: 'Men Regular Fit Cotton Casual Shirt (Pack of 2)',
-    description:
-      'Cotton shirts in a two-pack. Fast-moving Meesho fashion listing with strong reorder rates.',
-    store: 'meesho',
-    affiliate_url: 'https://www.meesho.com/men-cotton-casual-shirt/p/def456',
-    category: 'Fashion',
-    brand: 'Generic',
-    price: 699,
-    mrp: 1999,
-    rating: 3.8,
   },
   {
     title: 'HP 15s Ryzen 5 Laptop (16GB / 512GB SSD)',
@@ -112,18 +87,6 @@ const DEMO_DEALS = [
     rating: 4.4,
   },
   {
-    title: 'Stainless Steel Insulated Water Bottle 1L',
-    description:
-      'Keeps water hot or cold for 24 hours. Cheap repeat-purchase item, great for click volume.',
-    store: 'meesho',
-    affiliate_url: 'https://www.meesho.com/steel-insulated-water-bottle/p/ghi789',
-    category: 'Home & Kitchen',
-    brand: 'Milton',
-    price: 449,
-    mrp: 999,
-    rating: 4.0,
-  },
-  {
     title: 'Samsung 8kg Fully Automatic Front Load Washing Machine',
     description:
       'Eco Bubble tech, hygiene steam, 5-star rating. Big-ticket item — highest commission per sale.',
@@ -147,17 +110,6 @@ const DEMO_DEALS = [
     mrp: 3999,
     rating: 4.1,
     coupon_code: 'SPORT200',
-  },
-  {
-    title: 'Wooden Wall Shelf Set of 3',
-    description: 'Floating shelves for living room decor — a strong repeat category on Meesho.',
-    store: 'meesho',
-    affiliate_url: 'https://www.meesho.com/wooden-wall-shelf-set-of-3/p/jkl012',
-    category: 'Home Decor',
-    brand: 'Generic',
-    price: 399,
-    mrp: 1299,
-    rating: 3.7,
   },
 ];
 

@@ -88,8 +88,8 @@ export default function Home() {
         <section className="hero">
           <h1>{site.tagline}</h1>
           <p>
-            Every deal here is checked by hand before it goes live. Tap through to Amazon, Flipkart
-            or Meesho to buy — the price you see there is the price you pay.
+            Every deal here is checked by hand before it goes live. Tap through to Amazon or
+            Flipkart to buy — you pay their price, never more.
           </p>
           <div className="hero-stats">
             <div className="hero-stat">

@@ -10,10 +10,9 @@ export default function Footer() {
         <div className="stack" style={{ gap: 10, maxWidth: '46ch' }}>
           <strong>{site.name}</strong>
           <p className="fine" style={{ margin: 0 }}>
-            {site.name} is a participant in the Amazon Associates, Flipkart Affiliate and Meesho
-            partner programmes. We earn a commission when you buy through our links — at no extra
-            cost to you. Prices and availability shown are indicative and change on the retailer's
-            site.
+            Handpicked price drops from Amazon and Flipkart. You buy on the retailer's own site
+            at their price, and the price at checkout is always the one that applies. As an
+            affiliate we may earn a commission on qualifying purchases, at no cost to you.
           </p>
         </div>
         <nav>

@@ -1,7 +1,7 @@
-# DealDost — Affiliate Marketing Website (Amazon · Flipkart · Meesho)
+# DealDost — Affiliate Marketing Website (Amazon · Flipkart)
 
 A complete, working affiliate/deals website. You publish product deals, visitors click
-**Buy on Amazon / Flipkart / Meesho**, and every click is tagged with your affiliate ID and
+**Buy on Amazon / Flipkart**, and every click is tagged with your affiliate ID and
 counted — so you earn commission and can see which deals actually work.
 
 You **add and remove items yourself** from a built-in admin panel — by hand, or by searching
@@ -36,7 +36,6 @@ Visitor clicks "Buy on Amazon"
 | Finding items to add | Built-in finder — searches the stores and reads product pages | Free, no signup |
 | Amazon commission | Amazon Associates India | Free to join |
 | Flipkart commission | Flipkart Affiliate, or EarnKaro | Free to join |
-| Meesho commission | Meesho partner programme, or EarnKaro / INRDeals | Free to join |
 
 No Docker, no Redis, no payment gateway, no API keys, no AI. **Find products**
 (Admin → 🔍 Find products) searches the stores and reads their product pages directly, so
@@ -104,7 +103,7 @@ Sign in at **http://localhost:3000/login**, then open the **Admin** tab.
 | Field | Required | Notes |
 |---|---|---|
 | Product title | yes | What visitors see and search on |
-| Affiliate link | yes | Paste the product URL from Amazon / Flipkart / Meesho. The store is detected automatically and your affiliate ID is attached at click time — you do **not** need to build a tagged link yourself |
+| Affiliate link | yes | Paste the product URL from Amazon or Flipkart. The store is detected automatically and your affiliate ID is attached at click time — you do **not** need to build a tagged link yourself |
 | Store | no | Only needed if the link is a shortlink the detector can't read |
 | Category | no | Free text with suggestions from your existing categories; defaults to `Other` |
 | Deal price / MRP | price yes | If MRP is higher, the `% OFF` badge and "you save" line appear automatically |
@@ -154,17 +153,13 @@ server:
 |---|---|---|
 | **Flipkart** | ✅ Works | Serves the full listing as HTML |
 | **Amazon** | ⚠️ Sometimes | Often answers with a bot check and a note asking automated users to use their API instead |
-| **Meesho** | ❌ No | Blocks servers outright, and renders results in the browser |
 
-A store that will not answer is reported on its own row — *"Meesho: blocks server-side
 search — use Paste links instead"* — so you are never left guessing whether your keywords
 were bad. The other stores still return normally.
 
 #### Mode 2 — Paste links (works everywhere)
 
-This is the reliable one, and it covers every store including Amazon and Meesho.
 
-1. Click the store link under the results (**Amazon ↗ · Flipkart ↗ · Meesho ↗**) — or just
    search the store in your own browser as usual.
 2. Copy the links of the products you want.
 3. Switch to **Paste links**, paste them one per line, press **Read links**.
@@ -175,43 +170,6 @@ brand, rating and image come back filled in. Up to 25 links at a time.
 
 This works because a *product* page is the page a store wants machines to read; a *search*
 page is not.
-
-#### Mode 3 — One-click add (the bookmarklet)
-
-This is the answer to Amazon and Meesho, and it works on **all three** stores.
-
-They refuse to serve their pages to a server, so the server can never read them. Your
-browser, though, is already showing you the page. The bookmarklet runs there and reads the
-product you are looking at — no request from this site to the store at all, so there is
-nothing to block.
-
-**Install it once:**
-
-1. Admin → 🔍 Find products → **One-click add**.
-2. Show your bookmarks bar (**Ctrl+Shift+B**).
-3. Drag the blue **+ Add to DealDost** button onto the bar. (Dragging installs it —
-   clicking it on this page just shows a reminder.)
-
-**Then, to add anything:**
-
-1. Browse Amazon, Flipkart or Meesho normally and open a product page.
-2. Click **+ Add to DealDost** in your bookmarks bar.
-3. It reads the title, price, MRP, image, rating and brand, and queues the product.
-4. Repeat on as many products as you like — they collect in one tab, and the tab counter
-   shows how many are waiting.
-5. Come back to **One-click add**, check the cards, press **Add**.
-
-It reads a page three ways, best first: the store's own structured product data, then
-store-specific fields (Amazon's title/price/MRP/image elements, Meesho's rendered price),
-then generic page tags. If a page defeats all three it says so rather than guessing.
-
-Amazon links are cleaned up to a plain `amazon.in/dp/ASIN`, so all the tracking rubbish in
-the address bar is stripped before it reaches your catalogue.
-
-Everything the bookmarklet sends is re-checked on the server exactly like a search result —
-being sent by your own browser does not make it trusted. In particular the **store is
-decided by the link**, never by what the bookmarklet claims, because a link filed under the
-wrong store gets the wrong affiliate tag and earns you nothing.
 
 #### The review grid
 
@@ -265,7 +223,7 @@ accepts — keep this file. It is your restore path (see hosting note below).
 
 **Analytics** tab: clicks today / 7 days / 30 days / all time, clicks by store, by category,
 the last 14 days, and your top-clicked deals. Clicks are what this site can measure —
-actual commission and orders are always confirmed in the Amazon/Flipkart/Meesho dashboards.
+actual commission and orders are always confirmed in the Amazon/Flipkart dashboards.
 
 ---
 
@@ -288,16 +246,12 @@ working About and Contact page — all included.
 2. Copy your **affiliate/tracking ID**.
 3. Admin → **Settings** → *Flipkart affiliate ID* → paste → Save. It is added as `affid`.
 
-### Meesho
 
-Meesho has no open affiliate API. Either use links from your Meesho partner dashboard, or use
-a free network below. The *Meesho / network source ID* setting only adds `utm_source` for your
 own reporting.
 
 ### Easier alternative: free affiliate networks
 
 If direct approval is slow (common for new sites), join **EarnKaro**, **INRDeals** or
-**Cuelinks** — free, no company registration, and they cover Amazon, Flipkart *and* Meesho.
 Generate a link there and paste it in as the affiliate link. The site accepts those hosts and
 leaves their tracking untouched.
 
@@ -449,7 +403,6 @@ Admin (send `Authorization: Bearer <token>` from `POST /api/auth/login`):
 | GET | `/api/admin/finder/status` | Which stores can be searched from the server |
 | POST | `/api/admin/finder/search` | **Search** the stores — body `{ "query", "category", "stores", "limit" }`. Read-only |
 | POST | `/api/admin/finder/resolve` | **Read** pasted product links — body `{ "urls", "category" }`. Read-only |
-| POST | `/api/admin/finder/import` | **Accept** products read by the bookmarklet — body `{ "items", "category" }`. Vetted like any other source. Read-only |
 | GET | `/api/admin/stats` | Dashboard + click analytics |
 | GET/PUT | `/api/admin/settings` | Site name, tagline, affiliate IDs |
 
@@ -463,7 +416,7 @@ Admin (send `Authorization: Bearer <token>` from `POST /api/auth/login`):
 | `Could not reach Postgres` | Check the string is complete and ends with `?sslmode=require` |
 | Website shows no deals / network error | Is the API window still running on port 5000? Does `frontend/.env` have the right `VITE_API_URL`? |
 | Login fails | Locally: `npm run seed` in `backend/` prints the email/password it created. Deployed: the account comes from `ADMIN_EMAIL` / `ADMIN_PASSWORD` in the host's env vars |
-| "Links from … are not allowed" | Only Amazon/Flipkart/Meesho or EarnKaro/INRDeals/Cuelinks links are accepted. Use the store's real product URL |
+| "Links from … are not allowed" | Only Amazon/Flipkart or EarnKaro/INRDeals/Cuelinks links are accepted. Use the store's real product URL |
 | Buy button goes to the store but with no tag | Paste your affiliate ID in Admin → Settings, then check the row's **test link ↗** |
 | Deal changes don't show on the homepage | Listings are cached for 60s; writes clear the cache, so just reload |
 | Port 5000 or 3000 already in use | Change `PORT` in `backend/.env`, or the `server.port` in `frontend/vite.config.js` |

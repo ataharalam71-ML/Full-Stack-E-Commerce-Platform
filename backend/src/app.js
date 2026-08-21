@@ -23,7 +23,7 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-        // Product images are hosted by Amazon/Flipkart/Meesho, not by us.
+        // Product images are hosted by Amazon and Flipkart, not by us.
         'img-src': ["'self'", 'data:', 'https:'],
         'connect-src': ["'self'", 'https:'],
       },

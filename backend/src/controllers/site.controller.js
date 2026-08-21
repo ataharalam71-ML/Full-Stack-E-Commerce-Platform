@@ -12,7 +12,7 @@ const siteInfo = asyncHandler(async (req, res) => {
   res.json({
     site: {
       name: await getSetting('site_name', 'DealDost'),
-      tagline: await getSetting('site_tagline', 'Handpicked deals from Amazon, Flipkart & Meesho'),
+      tagline: await getSetting('site_tagline', 'Handpicked deals from Amazon & Flipkart'),
       contact_email: await getSetting('contact_email', ''),
       url: SITE_URL(),
     },

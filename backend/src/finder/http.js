@@ -84,7 +84,8 @@ async function getHtml(url) {
       signal: controller.signal,
     });
 
-    // 503 with a body is Amazon's bot wall; 403 is Meesho's. Both are blocks, not outages.
+    // A 503 with a body is Amazon's bot wall; 403 and 429 are the other stores'. All are
+    // deliberate blocks rather than outages.
     const blockedStatus = response.status === 403 || response.status === 503 || response.status === 429;
     const body = await readCapped(response);
 

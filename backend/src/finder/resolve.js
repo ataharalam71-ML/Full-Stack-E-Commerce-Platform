@@ -167,7 +167,7 @@ async function resolveUrl(rawUrl) {
   if (draft.mrp && draft.mrp <= draft.price) draft.mrp = null;
 
   // Titles from <title> tags carry the store's name; trim the noise.
-  draft.title = draft.title.replace(/\s*[|:-]\s*(Amazon\.in|Flipkart\.com|Meesho).*$/i, '').trim();
+  draft.title = draft.title.replace(/\s*[|:-]\s*(Amazon\.in|Flipkart\.com).*$/i, '').trim();
 
   return {
     ok: true,

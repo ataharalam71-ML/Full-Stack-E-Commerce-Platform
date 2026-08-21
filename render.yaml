@@ -30,10 +30,8 @@ services:
       # Your public site URL, e.g. https://dealdost.onrender.com (used by sitemap.xml).
       - key: SITE_URL
         sync: false
-      # Affiliate IDs — leave blank until approved, or set them in Admin -> Settings later.
+      # Affiliate IDs - leave blank until approved, or set them in Admin -> Settings later.
       - key: AMAZON_TAG
         sync: false
       - key: FLIPKART_AFFID
-        sync: false
-      - key: MEESHO_TAG
         sync: false

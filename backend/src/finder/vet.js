@@ -26,7 +26,6 @@ const toNumber = (value) => {
 const PRODUCT_PATHS = {
   amazon: [/\/dp\/[A-Z0-9]{10}/i, /\/gp\/product\/[A-Z0-9]{10}/i],
   flipkart: [/\/p\/itm[a-z0-9]+/i, /\/p\/[a-z0-9]+/i],
-  meesho: [/\/p\/[a-z0-9]+/i, /\/product\/[a-z0-9-]+/i],
 };
 
 function looksLikeProductPage(url, store, host) {

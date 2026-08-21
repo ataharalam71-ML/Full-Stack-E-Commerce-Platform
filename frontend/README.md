@@ -45,5 +45,5 @@ works, and a category link is just a link.
 ## Editing the look
 
 All colours, radii and shadows are custom properties at the top of `src/index.css` —
-including the three store brand colours (`--amazon`, `--flipkart`, `--meesho`) used by the buy
+including the store brand colours (`--amazon`, `--flipkart`) used by the buy
 buttons and badges. Change them there and the whole site follows.

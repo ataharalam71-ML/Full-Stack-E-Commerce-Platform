@@ -22,7 +22,6 @@ const EMPTY = {
 const STORE_HINTS = [
   { store: 'amazon', match: ['amazon.', 'amzn.'] },
   { store: 'flipkart', match: ['flipkart.', 'fkrt.'] },
-  { store: 'meesho', match: ['meesho.'] },
 ];
 
 const guessStore = (url) =>
@@ -128,7 +127,7 @@ export default function DealForm({ deal, categories = [], onSaved, onCancel }) {
         required
       />
       <p className="field-hint">
-        Paste the product link from Amazon / Flipkart / Meesho, or a shortlink from EarnKaro,
+        Paste the product link from Amazon or Flipkart, or a shortlink from EarnKaro,
         INRDeals or Cuelinks. Your affiliate ID is added automatically on click.
       </p>
 

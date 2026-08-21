@@ -132,11 +132,11 @@ export default function DealDetail() {
             {deal.clicks > 0 && ` · ${deal.clicks} people clicked through`}
           </div>
 
-          <div className="disclosure-note">
-            This is an affiliate link. {site.name} earns a small commission if you buy — it costs you
-            nothing extra. The final price, offers and delivery details are whatever {store.label}
-            {' '}shows at checkout.
-          </div>
+          <ul className="buy-notes">
+            <li>Same price as going to {store.label} yourself — nothing is added.</li>
+            <li>{store.label} handles payment, delivery, returns and warranty.</li>
+            <li>Prices move fast. Whatever {store.label} shows at checkout is what applies.</li>
+          </ul>
         </div>
       </div>
 

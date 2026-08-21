@@ -15,11 +15,6 @@ const FIELDS = [
     label: 'Flipkart affiliate ID',
     hint: 'From affiliate.flipkart.com → Account. Added to Flipkart links as affid.',
   },
-  {
-    key: 'meesho_tag',
-    label: 'Meesho / network source ID',
-    hint: 'Optional. Added as utm_source for your own reporting; Meesho tracking comes from the link itself.',
-  },
 ];
 
 /**

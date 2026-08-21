@@ -25,18 +25,6 @@ const STORES = {
     envKey: 'FLIPKART_AFFID',
     domains: ['flipkart.com', 'fkrt.it', 'fkrt.cc', 'dl.flipkart.com'],
   },
-  meesho: {
-    key: 'meesho',
-    label: 'Meesho',
-    color: '#f43397',
-    // Meesho has no open affiliate API — links come from your partner dashboard or
-    // from a free network like EarnKaro, so we only add UTM attribution.
-    tagParam: 'utm_source',
-    subIdParam: 'utm_content',
-    settingKey: 'meesho_tag',
-    envKey: 'MEESHO_TAG',
-    domains: ['meesho.com', 'meesho.in'],
-  },
 };
 
 const STORE_KEYS = Object.keys(STORES);
@@ -77,7 +65,7 @@ function validateAffiliateUrl(rawUrl) {
   if (!ALLOWED_HOSTS.some((domain) => hostMatches(host, domain))) {
     return {
       ok: false,
-      error: `Links from "${host}" are not allowed. Use an Amazon / Flipkart / Meesho link, or one from EarnKaro, INRDeals or Cuelinks.`,
+      error: `Links from "${host}" are not allowed. Use an Amazon or Flipkart link, or one from EarnKaro, INRDeals or Cuelinks.`,
     };
   }
 
@@ -142,10 +130,6 @@ async function withAffiliateTag(rawUrl, store, dealId) {
   if (dealId && !url.searchParams.has(config.subIdParam)) {
     url.searchParams.set(config.subIdParam, `deal-${dealId}`);
   }
-  if (store === 'meesho' && affiliateId && !url.searchParams.has('utm_medium')) {
-    url.searchParams.set('utm_medium', 'affiliate');
-  }
-
   return url.toString();
 }
 

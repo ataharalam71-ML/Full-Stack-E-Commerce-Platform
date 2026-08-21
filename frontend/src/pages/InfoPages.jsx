@@ -10,8 +10,8 @@ export function About() {
     <div className="prose">
       <h1>About {site.name}</h1>
       <p>
-        {site.name} is a deals site. We watch prices on Amazon, Flipkart and Meesho, and publish the
-        drops that are genuinely worth your money — not every discount, just the ones we would buy
+        {site.name} is a deals site. We watch prices on Amazon and Flipkart, and publish the drops
+        that are genuinely worth your money — not every discount, just the ones we would buy
         ourselves.
       </p>
 
@@ -39,7 +39,7 @@ export function Disclosure() {
     <div className="prose">
       <h1>Affiliate Disclosure</h1>
       <p>
-        {site.name} participates in affiliate programmes run by Amazon, Flipkart and Meesho, and in
+        {site.name} participates in affiliate programmes run by Amazon and Flipkart, and in
         affiliate networks such as EarnKaro, INRDeals and Cuelinks.
       </p>
 
@@ -61,8 +61,8 @@ export function Disclosure() {
       </ul>
 
       <p>
-        As an Amazon Associate we earn from qualifying purchases. Amazon, Flipkart, Meesho and their
-        logos are trademarks of their respective owners; this site is not endorsed by them.
+        As an Amazon Associate we earn from qualifying purchases. Amazon, Flipkart and their logos
+        are trademarks of their respective owners; this site is not endorsed by them.
       </p>
     </div>
   );
@@ -93,8 +93,8 @@ export function Privacy() {
 
       <h2>Third parties</h2>
       <p>
-        Clicking a deal takes you to Amazon, Flipkart, Meesho or an affiliate network. They set their
-        own cookies to attribute the sale, and their privacy policies apply once you leave this site.
+        Clicking a deal takes you to Amazon, Flipkart or an affiliate network. They set their own
+        cookies to attribute the sale, and their privacy policies apply once you leave this site.
       </p>
 
       <h2>Removing data</h2>
@@ -129,7 +129,7 @@ export function Contact() {
       <h2>What we cannot help with</h2>
       <p>
         We are not the seller. Order status, cancellations, refunds and warranty claims have to go
-        through Amazon, Flipkart or Meesho directly — we have no access to your order.
+        through Amazon or Flipkart directly — we have no access to your order.
       </p>
     </div>
   );

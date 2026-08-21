@@ -2,11 +2,10 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import api from '../api';
 
 const FALLBACK = {
-  site: { name: 'DealDost', tagline: 'Handpicked deals from Amazon, Flipkart & Meesho', contact_email: '' },
+  site: { name: 'DealDost', tagline: 'Handpicked deals from Amazon & Flipkart', contact_email: '' },
   stores: [
     { key: 'amazon', label: 'Amazon', color: '#ff9900' },
     { key: 'flipkart', label: 'Flipkart', color: '#2874f0' },
-    { key: 'meesho', label: 'Meesho', color: '#f43397' },
   ],
 };
 

@@ -18,7 +18,6 @@ const SETTING_KEYS = [
   'site_tagline',
   'amazon_tag',
   'flipkart_affid',
-  'meesho_tag',
   'contact_email',
 ];
 

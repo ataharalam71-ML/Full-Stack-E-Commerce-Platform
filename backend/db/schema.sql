@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS deals (
     title         TEXT NOT NULL,
     slug          TEXT NOT NULL UNIQUE,
     description   TEXT,
-    store         TEXT NOT NULL CHECK (store IN ('amazon', 'flipkart', 'meesho')),
+    store         TEXT NOT NULL CHECK (store IN ('amazon', 'flipkart')),
     affiliate_url TEXT NOT NULL,
     image_url     TEXT,
     category      TEXT NOT NULL DEFAULT 'Other',
@@ -61,6 +61,12 @@ CREATE TABLE IF NOT EXISTS settings (
     value      TEXT NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Bring an existing database's store constraint in line with the one above. A plain
+-- CREATE TABLE IF NOT EXISTS cannot do this, so the constraint is dropped and re-added;
+-- DROP ... IF EXISTS first is what makes re-running safe.
+ALTER TABLE deals DROP CONSTRAINT IF EXISTS deals_store_check;
+ALTER TABLE deals ADD  CONSTRAINT deals_store_check CHECK (store IN ('amazon', 'flipkart'));
 
 -- ===== keep updated_at fresh =====
 CREATE OR REPLACE FUNCTION touch_updated_at() RETURNS TRIGGER AS $func$

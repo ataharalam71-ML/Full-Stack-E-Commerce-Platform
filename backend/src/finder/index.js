@@ -2,12 +2,11 @@
 // No model, no API key — just HTTP and parsing.
 const amazon = require('./amazon');
 const flipkart = require('./flipkart');
-const meesho = require('./meesho');
 const { resolveUrl } = require('./resolve');
 const { vet } = require('./vet');
 
-const ADAPTERS = { amazon, flipkart, meesho };
-const STORE_ORDER = ['flipkart', 'amazon', 'meesho']; // most reliable first
+const ADAPTERS = { amazon, flipkart };
+const STORE_ORDER = ['flipkart', 'amazon']; // most reliable first
 
 const MAX_RESULTS = 40;
 const MAX_URLS = 25;
@@ -42,8 +41,8 @@ async function searchStores({ query, stores, perStore }) {
       try {
         const result = await adapter.search(query, perStore);
 
-        // A store can also answer 200 with nothing usable — Meesho renders its results in
-        // the browser, so a server gets an empty shell. That is "unavailable", not "no
+        // A store can also answer 200 with nothing usable — a page that renders its results
+        // in the browser leaves a server with an empty shell. That is "unavailable", not "no
         // matches", and saying so is the difference between the admin understanding the
         // result and thinking their search term was bad.
         const emptyButOk = !result.error && result.products.length === 0;
