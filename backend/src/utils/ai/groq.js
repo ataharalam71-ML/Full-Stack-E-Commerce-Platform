@@ -101,7 +101,81 @@ async function runSearch({ task, stores }) {
   };
 }
 
-// ── Step 2: reshape into the admin panel's format ────────────────────────────
+// ── Step 2a: parse the list ourselves (the normal path) ──────────────────────
+//
+// The search already asks for one product per line, pipe-separated, so the usual case
+// needs no second model at all: a few lines of parsing do it. That is worth preferring for
+// three separate reasons — it cannot invent a product the way a model can, it halves the
+// latency and the free-tier quota, and it keeps the whole feature off the 8K
+// tokens-per-minute ceiling that the formatting model has on the free tier.
+const COLUMNS = [
+  'title', 'store', 'url', 'price', 'mrp', 'brand', 'rating', 'confidence', 'image_url',
+];
+
+const BLANK = new Set(['', '?', '-', '—', 'n/a', 'na', 'none', 'null', 'unknown', 'not shown']);
+
+/** Models like to decorate: "**Title**", "[text](url)", "<url>", trailing punctuation. */
+function tidy(value) {
+  let text = String(value ?? '').trim();
+  const link = text.match(/\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/); // [label](url)
+  if (link) return link[1];
+  text = text.replace(/^<|>$/g, '').replace(/\*\*/g, '').replace(/^`|`$/g, '').trim();
+  return BLANK.has(text.toLowerCase()) ? null : text;
+}
+
+const asNumber = (value) => {
+  if (value === null) return null;
+  const n = Number(String(value).replace(/[^\d.]/g, ''));
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
+
+/**
+ * Reads the numbered pipe-separated list back out of the search reply. Lines that do not
+ * fit the shape are skipped rather than guessed at, and a line only counts if it has the
+ * four fields that make a deal possible at all: title, store, url, price.
+ */
+function parseFindings(text) {
+  const products = [];
+  let note = '';
+
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+
+    if (/^note\s*:/i.test(trimmed)) {
+      note = trimmed.replace(/^note\s*:/i, '').trim();
+      continue;
+    }
+    if (!trimmed.includes('|')) continue;
+
+    // Drop a leading "1." / "-" / "*" bullet, then split the columns.
+    const cells = trimmed.replace(/^\s*(?:\d+[.)]|[-*•])\s*/, '').split('|').map(tidy);
+    if (cells.length < 4) continue;
+
+    const row = {};
+    COLUMNS.forEach((key, i) => {
+      row[key] = i < cells.length ? cells[i] : null;
+    });
+
+    row.price = asNumber(row.price);
+    row.mrp = asNumber(row.mrp);
+    row.rating = asNumber(row.rating);
+    row.store = row.store ? row.store.toLowerCase() : null;
+    row.confidence = CONFIDENCE.includes(String(row.confidence).toLowerCase())
+      ? String(row.confidence).toLowerCase()
+      : 'medium';
+    row.description = null;
+
+    // Without these four there is nothing to publish, so the row is not worth keeping.
+    if (!row.title || !row.url || !row.store || !row.price) continue;
+    if (!/^https?:\/\//i.test(row.url)) continue;
+
+    products.push(row);
+  }
+
+  return { products, note };
+}
+
+// ── Step 2b: fall back to a model when the parse comes up empty ──────────────
 // Strict mode requires every property in `required` and `additionalProperties: false`, so
 // optional fields are expressed as nullable unions rather than being left out.
 const nullable = (type, description) => ({ type: [type, 'null'], description });
@@ -156,10 +230,25 @@ const FORMAT_SYSTEM = [
 ].join('\n');
 
 /**
- * Three attempts, weakest constraint last: a strict schema, then a best-effort schema,
- * then plain JSON-object mode with the shape described in the prompt. Only the strict pass
- * is guaranteed to match the schema, so every pass is still vetted downstream — this just
- * means a model that dislikes one `response_format` does not take the feature down.
+ * Groq counts `input + max_tokens` against the model's tokens-per-minute allowance and
+ * answers 413 `request_too_large` when the two together exceed it. On the free tier
+ * gpt-oss-120b allows 8K TPM, so an over-generous max_tokens fails every single time
+ * regardless of how short the prompt is. Budget for it explicitly.
+ */
+const TPM_BUDGET = Number(process.env.GROQ_FORMAT_TPM || 8000);
+const roughTokens = (text) => Math.ceil(String(text).length / 3.5); // deliberately pessimistic
+
+function outputBudget(promptText, count) {
+  const wanted = 220 * count + 400; // ~220 tokens of JSON per product
+  const room = TPM_BUDGET - roughTokens(promptText) - 500; // 500 = safety margin
+  return Math.max(700, Math.min(wanted, room));
+}
+
+/**
+ * Only runs when the deterministic parse found nothing. Tries the weakest constraint last:
+ * a strict schema, then a best-effort schema, then plain JSON-object mode. Every pass is
+ * still vetted downstream, so this only means a model that dislikes one `response_format`
+ * does not take the feature down.
  */
 async function runFormat({ findings, category, count }) {
   const groq = getClient();
@@ -189,7 +278,9 @@ async function runFormat({ findings, category, count }) {
     { type: 'json_object' },
   ];
 
+  let maxTokens = outputBudget(JSON.stringify(messages), count);
   let lastError;
+
   for (const response_format of formats) {
     try {
       // eslint-disable-next-line no-await-in-loop -- fallbacks are sequential by nature
@@ -198,7 +289,7 @@ async function runFormat({ findings, category, count }) {
         messages,
         response_format,
         temperature: 0,
-        max_tokens: 8192,
+        max_tokens: maxTokens,
       });
 
       const raw = completion.choices?.[0]?.message?.content;
@@ -206,6 +297,16 @@ async function runFormat({ findings, category, count }) {
       return JSON.parse(raw);
     } catch (err) {
       lastError = err;
+
+      // 413 means the token budget was still too generous — halve it and try again rather
+      // than moving on to a different response_format, which would not help.
+      if (err?.status === 413 && maxTokens > 800) {
+        maxTokens = Math.floor(maxTokens / 2);
+        console.warn(`[ai:groq] 413 from ${FORMAT_MODEL}; retrying with max_tokens=${maxTokens}.`);
+        formats.unshift(response_format); // give this format another go at the smaller size
+        continue;
+      }
+
       // A rejected response_format is worth downgrading for; anything else (auth, rate
       // limit, network) will not be fixed by trying a looser schema.
       if (!isBadRequest(err) && !(err instanceof SyntaxError)) throw err;
@@ -239,18 +340,32 @@ async function suggest({ query, category, stores, count, existingTitles }) {
     };
   }
 
-  const shaped = await runFormat({ findings: found.text, category, count });
+  // Read the list ourselves first. This is the normal path — one API call, no second model,
+  // and nothing between the search results and the admin that could invent a product.
+  const parsed = parseFindings(found.text);
+  let products = parsed.products;
+  let note = parsed.note;
+  let usedFormatter = false;
 
-  const notes = [(shaped.note || '').trim()];
+  if (!products.length) {
+    // The reply did not come back as a list. Ask a model to reshape it instead.
+    console.warn('[ai:groq] Could not parse the search reply as a list; using the formatter.');
+    const shaped = await runFormat({ findings: found.text, category, count });
+    products = Array.isArray(shaped.products) ? shaped.products : [];
+    note = (shaped.note || '').trim();
+    usedFormatter = true;
+  }
+
+  const notes = [note];
   if (!found.filtered) {
     notes.push('Searched without store-domain filtering, so expect more results to be dropped.');
   }
 
   return {
-    products: Array.isArray(shaped.products) ? shaped.products : [],
+    products: products.slice(0, count),
     note: notes.filter(Boolean).join(' '),
     searches: found.searches,
-    model: `${SEARCH_MODEL} + ${FORMAT_MODEL}`,
+    model: usedFormatter ? `${SEARCH_MODEL} + ${FORMAT_MODEL}` : SEARCH_MODEL,
   };
 }
 
