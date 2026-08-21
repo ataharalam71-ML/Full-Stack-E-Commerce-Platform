@@ -79,6 +79,51 @@ function describe() {
 }
 
 /**
+ * Turns a provider SDK error into something an admin can act on.
+ *
+ * This matters more than it looks: SDK errors carry `.status`, not `.statusCode`, so
+ * without this every one of them reached the error handler as an unlabelled 500 and got
+ * masked as "Internal server error" — which tells you nothing about what to fix.
+ */
+function translateProviderError(err, provider) {
+  // Already one of ours (a config problem) — pass it through untouched.
+  if (err.statusCode) return err;
+
+  const status = err.status;
+  if (!status) {
+    // Network / timeout / anything that never reached the provider.
+    const wrapped = new Error(
+      `Could not reach ${provider.label}: ${err.message}. If this keeps happening, the ` +
+        'search may simply be taking too long — try asking for fewer products.'
+    );
+    wrapped.statusCode = 504;
+    return wrapped;
+  }
+
+  // The provider's own explanation, which is usually the actually useful part.
+  const detail = err.error?.error?.message || err.error?.message || err.message || '';
+
+  const messages = {
+    401: `${provider.label} rejected the API key. Check ${provider.envKey} in your ` +
+      `environment — copy it again from ${provider.consoleUrl} if you are unsure.`,
+    403: `${provider.label} refused the request: ${detail}`,
+    404: `${provider.label} does not recognise the model "${provider.model}". It may have ` +
+      `been renamed — check ${provider.consoleUrl} and set the model override in your ` +
+      'environment variables.',
+    429: `${provider.label} rate limit reached. Wait a minute and try again — the free ` +
+      'tier allows roughly 30 requests a minute and 250 searches a day.',
+  };
+
+  const wrapped = new Error(
+    messages[status] || `${provider.label} returned an error (${status}): ${detail}`
+  );
+  // 4xx from the provider is a bad request on our side or a limit on theirs — either way
+  // it is not an unexplained server fault, so it keeps its own message.
+  wrapped.statusCode = status === 429 ? 429 : status === 401 || status === 403 ? 502 : 502;
+  return wrapped;
+}
+
+/**
  * Runs the finder. Returns { products, note, searches, model } — raw model output, still
  * to be validated by the caller. Throws with a `statusCode` on a configuration problem.
  */
@@ -104,7 +149,17 @@ async function suggest(options) {
     throw err;
   }
 
-  return provider.suggest(options);
+  try {
+    return await provider.suggest(options);
+  } catch (err) {
+    // Log the raw body once, server-side: it is the only place the provider's full
+    // response survives, and it is what makes a Render log worth reading.
+    console.error(
+      `[ai:${provider.key}] ${err.status || 'no-status'} ${err.message}`,
+      err.error ? JSON.stringify(err.error) : ''
+    );
+    throw translateProviderError(err, provider);
+  }
 }
 
 module.exports = { isConfigured, describe, suggest, MAX_SUGGESTIONS };

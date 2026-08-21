@@ -49,33 +49,55 @@ const SEARCH_SYSTEM = [
   'No other commentary — the list is the deliverable.',
 ].join('\n');
 
+/** A 4xx that is the request's fault is worth retrying in a simpler form. */
+const isBadRequest = (err) => err?.status === 400 || err?.status === 422;
+
 /**
  * Restricting the search to the store domains is what keeps the links real: the model can
  * only cite pages it was actually shown, and it is only shown store pages.
+ *
+ * Compound is an agentic system rather than a plain chat model, and Groq does not document
+ * which parameters it accepts. So the instructions go in the user message (a system role is
+ * the parameter most likely to be ignored or refused), and if `search_settings` is rejected
+ * the search is retried without it — unfiltered results still beat no feature at all,
+ * because the vetting in ai.controller.js is what actually guarantees the links.
  */
 async function runSearch({ task, stores }) {
   const groq = getClient();
+  const prompt = `${SEARCH_SYSTEM}\n\n---\n\n${task}`;
 
-  const completion = await groq.chat.completions.create({
+  const base = {
     model: SEARCH_MODEL,
-    messages: [
-      { role: 'system', content: SEARCH_SYSTEM },
-      { role: 'user', content: task },
-    ],
-    search_settings: {
-      include_domains: stores.flatMap((key) => STORES[key].domains),
-      country: 'india',
-      include_images: true,
-    },
+    messages: [{ role: 'user', content: prompt }],
     temperature: 0.3,
     max_tokens: 4096,
-  });
+  };
+
+  const searchSettings = {
+    include_domains: stores.flatMap((key) => STORES[key].domains),
+    country: 'india',
+  };
+
+  let completion;
+  let filtered = true;
+  try {
+    completion = await groq.chat.completions.create({ ...base, search_settings: searchSettings });
+  } catch (err) {
+    if (!isBadRequest(err)) throw err;
+    console.warn(
+      `[ai:groq] ${SEARCH_MODEL} rejected search_settings (${err.status}); ` +
+        'retrying without domain filtering.'
+    );
+    filtered = false;
+    completion = await groq.chat.completions.create(base);
+  }
 
   const message = completion.choices?.[0]?.message;
   return {
     text: message?.content?.trim() || '',
     // `executed_tools` is how compound reports the searches it actually ran.
     searches: Array.isArray(message?.executed_tools) ? message.executed_tools.length : 0,
+    filtered,
   };
 }
 
@@ -133,38 +155,74 @@ const FORMAT_SYSTEM = [
   '- Copy URLs character for character.',
 ].join('\n');
 
+/**
+ * Three attempts, weakest constraint last: a strict schema, then a best-effort schema,
+ * then plain JSON-object mode with the shape described in the prompt. Only the strict pass
+ * is guaranteed to match the schema, so every pass is still vetted downstream — this just
+ * means a model that dislikes one `response_format` does not take the feature down.
+ */
 async function runFormat({ findings, category, count }) {
   const groq = getClient();
 
-  const completion = await groq.chat.completions.create({
-    model: FORMAT_MODEL,
-    messages: [
-      { role: 'system', content: FORMAT_SYSTEM },
-      {
-        role: 'user',
-        content: [
-          `Convert these research notes into at most ${count} structured products.`,
-          `Where a product has no category of its own, use "${category}".`,
-          '',
-          '--- RESEARCH NOTES ---',
-          findings,
-          '--- END NOTES ---',
-        ].join('\n'),
-      },
-    ],
-    response_format: { type: 'json_schema', json_schema: RESULT_SCHEMA },
-    temperature: 0,
-    max_tokens: 8192,
-  });
+  const messages = [
+    { role: 'system', content: FORMAT_SYSTEM },
+    {
+      role: 'user',
+      content: [
+        `Convert these research notes into at most ${count} structured products.`,
+        `Where a product has no category of its own, use "${category}".`,
+        '',
+        'Reply with JSON only: {"products":[{"title","url","store","price","mrp","brand",',
+        '"category","rating","description","image_url","confidence"}],"note":""}',
+        'store is amazon|flipkart|meesho. confidence is high|medium|low. Unknown fields null.',
+        '',
+        '--- RESEARCH NOTES ---',
+        findings,
+        '--- END NOTES ---',
+      ].join('\n'),
+    },
+  ];
 
-  const raw = completion.choices?.[0]?.message?.content || '{}';
-  try {
-    return JSON.parse(raw);
-  } catch {
-    const err = new Error('The AI returned something that was not valid JSON. Try again.');
-    err.statusCode = 502;
-    throw err;
+  const formats = [
+    { type: 'json_schema', json_schema: RESULT_SCHEMA },
+    { type: 'json_schema', json_schema: { ...RESULT_SCHEMA, strict: false } },
+    { type: 'json_object' },
+  ];
+
+  let lastError;
+  for (const response_format of formats) {
+    try {
+      // eslint-disable-next-line no-await-in-loop -- fallbacks are sequential by nature
+      const completion = await groq.chat.completions.create({
+        model: FORMAT_MODEL,
+        messages,
+        response_format,
+        temperature: 0,
+        max_tokens: 8192,
+      });
+
+      const raw = completion.choices?.[0]?.message?.content;
+      if (!raw) throw new Error('empty response');
+      return JSON.parse(raw);
+    } catch (err) {
+      lastError = err;
+      // A rejected response_format is worth downgrading for; anything else (auth, rate
+      // limit, network) will not be fixed by trying a looser schema.
+      if (!isBadRequest(err) && !(err instanceof SyntaxError)) throw err;
+      console.warn(
+        `[ai:groq] ${FORMAT_MODEL} rejected ${response_format.type}` +
+          `${response_format.json_schema ? `(strict=${response_format.json_schema.strict})` : ''}` +
+          `: ${err.message}. Trying a looser format.`
+      );
+    }
   }
+
+  const err = new Error(
+    'The AI found products but could not format them. This usually clears on a retry.'
+  );
+  err.statusCode = 502;
+  err.cause = lastError;
+  throw err;
 }
 
 /** Same contract as the Anthropic provider: { products, note, searches, model }. */
@@ -183,9 +241,14 @@ async function suggest({ query, category, stores, count, existingTitles }) {
 
   const shaped = await runFormat({ findings: found.text, category, count });
 
+  const notes = [(shaped.note || '').trim()];
+  if (!found.filtered) {
+    notes.push('Searched without store-domain filtering, so expect more results to be dropped.');
+  }
+
   return {
     products: Array.isArray(shaped.products) ? shaped.products : [],
-    note: (shaped.note || '').trim(),
+    note: notes.filter(Boolean).join(' '),
     searches: found.searches,
     model: `${SEARCH_MODEL} + ${FORMAT_MODEL}`,
   };
