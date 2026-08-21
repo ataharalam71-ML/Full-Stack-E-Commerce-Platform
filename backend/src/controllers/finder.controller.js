@@ -102,4 +102,34 @@ const resolveLinks = asyncHandler(async (req, res) => {
   });
 });
 
-module.exports = { finderStatus, searchProducts, resolveLinks };
+/**
+ * POST /api/admin/finder/import — accept products the admin's own browser read.
+ *
+ * This is how Amazon and Meesho get in. Both refuse to serve their pages to a server, but
+ * the admin is already looking at the page in a real browser, so the bookmarklet reads it
+ * there and posts the fields here. The data arrives from the client instead of from our own
+ * fetch, so it goes through exactly the same gate as everything else — nothing is trusted
+ * just because it came from the browser.
+ *
+ * Read-only: still nothing but drafts to approve.
+ */
+const importItems = asyncHandler(async (req, res) => {
+  const items = Array.isArray(req.body?.items) ? req.body.items : [];
+  if (!items.length) throw new ApiError(400, 'Nothing to import.');
+  if (items.length > finder.MAX_URLS) {
+    throw new ApiError(400, `Import at most ${finder.MAX_URLS} products at a time.`);
+  }
+
+  const category = String(req.body?.category ?? '').trim().slice(0, 80) || 'Other';
+
+  const { accepted, rejected } = finder.vetAll(items, category);
+
+  res.json({
+    category,
+    requested: items.length,
+    results: await decorate(accepted),
+    rejected,
+  });
+});
+
+module.exports = { finderStatus, searchProducts, resolveLinks, importItems };

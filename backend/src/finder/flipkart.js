@@ -24,18 +24,51 @@ function productUrl(href) {
 const itemId = (href) => (href.match(/\/p\/(itm[a-z0-9]+)/i) || [])[1] || null;
 
 /**
- * Walks up from the anchor until the enclosing element is big enough to be the whole card
- * (it contains a price). Going by size rather than by class is what survives a redesign.
+ * Finds the element that is exactly this product's card.
+ *
+ * The boundary is defined by content, not by class or depth: keep climbing while the
+ * ancestor still contains exactly one product link, and stop the moment it contains two.
+ * That is what a card *is*, so it survives a redesign.
+ *
+ * Stopping at the first ancestor that merely contains a price is not enough — Flipkart
+ * puts the price and the thumbnail in sibling columns, so that lands on the text column
+ * and the image is never found. Climbing to the last single-product ancestor gets both.
  */
 function cardFor($, anchor) {
+  let card = anchor;
   let node = anchor;
-  for (let depth = 0; depth < 7; depth += 1) {
+
+  for (let depth = 0; depth < 8; depth += 1) {
     const parent = node.parent();
     if (!parent.length) break;
     node = parent;
-    if (/₹\s?[\d,]+/.test(node.text())) return node;
+
+    const ids = new Set((node.html() || '').match(/\/p\/itm[a-z0-9]+/gi) || []);
+    if (ids.size > 1) break; // crossed into a neighbouring product — the last one was the card
+    card = node;
   }
-  return node;
+
+  return card;
+}
+
+/** Flipkart serves some assets protocol-relative ("//host/path"). */
+const absolute = (src) => {
+  if (!src) return null;
+  if (src.startsWith('//')) return `https:${src}`;
+  return /^https?:\/\//i.test(src) ? src : null;
+};
+
+/**
+ * The product thumbnail. Flipkart's own CDN is rukminim*.flixcart.com; anything else in a
+ * card is a badge or a rating icon, so a generic "first image" would pick up the wrong one.
+ */
+function imageIn($, card, id) {
+  const fromCard = card.find('img[src*="rukminim"]').first().attr('src');
+  if (fromCard) return absolute(fromCard);
+
+  // Fallback: the thumbnail sits inside one of the other anchors for the same product.
+  const sibling = $(`a[href*="${id}"]`).find('img[src*="rukminim"]').first().attr('src');
+  return absolute(sibling);
 }
 
 /**
@@ -93,10 +126,7 @@ function parse(html, limit) {
     const beforeTitle = blob.split(title)[0].trim();
     const brand = beforeTitle && beforeTitle.length <= 40 ? beforeTitle : null;
 
-    const image =
-      card.find('img[src*="rukminim"]').attr('src') ||
-      card.find('img[src^="http"]').attr('src') ||
-      null;
+    const image = imageIn($, card, id);
 
     seen.add(id);
     products.push({

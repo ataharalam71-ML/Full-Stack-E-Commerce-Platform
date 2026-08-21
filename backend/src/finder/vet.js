@@ -57,7 +57,15 @@ function vet(raw, { category, seenUrls, seenSlugs }) {
   if (!check.ok) return { ok: false, title, reason: check.error };
 
   const url = check.url.toString();
-  const store = STORE_KEYS.includes(raw?.store) ? raw.store : detectStore(url);
+
+  // The link decides which store this is — never the caller's claim about it. Get this
+  // backwards and a Flipkart link saved as "amazon" gets no affiliate tag on redirect,
+  // because the tag is looked up per store: the click happens and the commission is lost.
+  // The claimed store is only a fallback, for affiliate-network shortlinks whose host
+  // hides the real destination.
+  const detected = detectStore(url);
+  const claimed = STORE_KEYS.includes(raw?.store) ? raw.store : null;
+  const store = detected || claimed;
   if (!store) return { ok: false, title, reason: 'Could not tell which store the link is for' };
 
   // A search or category page passes the domain check but is not a deal.

@@ -400,3 +400,30 @@ td.actions { white-space: nowrap; display: flex; gap: 6px; }
   background: rgba(183, 121, 31, 0.1); border-color: rgba(183, 121, 31, 0.3);
 }
 .store-report.blocked span { color: var(--warning); }
+
+/* ── Admin: the bookmarklet ────────────────────────────────────────────────── */
+.bookmarklet-box {
+  display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
+  justify-content: space-between;
+  background: var(--accent-soft); border: 1px dashed var(--accent);
+  border-radius: var(--radius); padding: 14px 16px; margin-bottom: 16px;
+}
+
+/* Styled as a button because it is dragged, not clicked. */
+.bookmarklet-btn {
+  display: inline-block; white-space: nowrap; cursor: grab;
+  background: var(--accent); color: #fff; font-weight: 700; font-size: 0.92rem;
+  padding: 11px 20px; border-radius: var(--radius-sm);
+  box-shadow: var(--shadow); text-decoration: none;
+}
+.bookmarklet-btn:hover { background: var(--accent-hover); color: #fff; }
+.bookmarklet-btn:active { cursor: grabbing; }
+
+.tight-list { margin: 6px 0 0; padding-left: 20px; line-height: 1.65; }
+.tight-list li { margin-bottom: 3px; }
+
+kbd {
+  background: var(--surface); border: 1px solid var(--border-strong);
+  border-bottom-width: 2px; border-radius: 4px;
+  padding: 1px 5px; font-size: 0.8em; font-family: inherit; font-weight: 600;
+}

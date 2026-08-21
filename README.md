@@ -176,6 +176,43 @@ brand, rating and image come back filled in. Up to 25 links at a time.
 This works because a *product* page is the page a store wants machines to read; a *search*
 page is not.
 
+#### Mode 3 — One-click add (the bookmarklet)
+
+This is the answer to Amazon and Meesho, and it works on **all three** stores.
+
+They refuse to serve their pages to a server, so the server can never read them. Your
+browser, though, is already showing you the page. The bookmarklet runs there and reads the
+product you are looking at — no request from this site to the store at all, so there is
+nothing to block.
+
+**Install it once:**
+
+1. Admin → 🔍 Find products → **One-click add**.
+2. Show your bookmarks bar (**Ctrl+Shift+B**).
+3. Drag the blue **+ Add to DealDost** button onto the bar. (Dragging installs it —
+   clicking it on this page just shows a reminder.)
+
+**Then, to add anything:**
+
+1. Browse Amazon, Flipkart or Meesho normally and open a product page.
+2. Click **+ Add to DealDost** in your bookmarks bar.
+3. It reads the title, price, MRP, image, rating and brand, and queues the product.
+4. Repeat on as many products as you like — they collect in one tab, and the tab counter
+   shows how many are waiting.
+5. Come back to **One-click add**, check the cards, press **Add**.
+
+It reads a page three ways, best first: the store's own structured product data, then
+store-specific fields (Amazon's title/price/MRP/image elements, Meesho's rendered price),
+then generic page tags. If a page defeats all three it says so rather than guessing.
+
+Amazon links are cleaned up to a plain `amazon.in/dp/ASIN`, so all the tracking rubbish in
+the address bar is stripped before it reaches your catalogue.
+
+Everything the bookmarklet sends is re-checked on the server exactly like a search result —
+being sent by your own browser does not make it trusted. In particular the **store is
+decided by the link**, never by what the bookmarklet claims, because a link filed under the
+wrong store gets the wrong affiliate tag and earns you nothing.
+
 #### The review grid
 
 Every card, from either mode, gives you:
@@ -412,6 +449,7 @@ Admin (send `Authorization: Bearer <token>` from `POST /api/auth/login`):
 | GET | `/api/admin/finder/status` | Which stores can be searched from the server |
 | POST | `/api/admin/finder/search` | **Search** the stores — body `{ "query", "category", "stores", "limit" }`. Read-only |
 | POST | `/api/admin/finder/resolve` | **Read** pasted product links — body `{ "urls", "category" }`. Read-only |
+| POST | `/api/admin/finder/import` | **Accept** products read by the bookmarklet — body `{ "items", "category" }`. Vetted like any other source. Read-only |
 | GET | `/api/admin/stats` | Dashboard + click analytics |
 | GET/PUT | `/api/admin/settings` | Site name, tagline, affiliate IDs |
 

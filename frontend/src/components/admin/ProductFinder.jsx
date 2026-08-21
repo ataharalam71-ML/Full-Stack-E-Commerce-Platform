@@ -1,9 +1,53 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import api, { errMsg } from '../../api';
 import { useSite } from '../../context/SiteContext';
 import { money } from '../../format';
+import { bookmarkletHref } from './bookmarklet';
 
 const LIMITS = [8, 12, 20, 30, 40];
+
+// Products sent over by the bookmarklet wait here, so clicking it on ten products in a row
+// collects all ten instead of each one replacing the last.
+const QUEUE_KEY = 'dealdost.importQueue';
+
+function readQueue() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+    return Array.isArray(raw) ? raw : [];
+  } catch {
+    return []; // a private window or cleared storage is normal, not an error
+  }
+}
+
+function writeQueue(items) {
+  try {
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(items.slice(0, 25)));
+  } catch {
+    /* storage unavailable — the queue just does not survive a reload */
+  }
+}
+
+/** Pulls ?import=… out of the URL and adds it to the queue, newest last, no duplicates. */
+function drainUrlImport() {
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get('import');
+  if (!raw) return readQueue();
+
+  let queue = readQueue();
+  try {
+    const item = JSON.parse(raw);
+    if (item?.url && !queue.some((q) => q.url === item.url)) queue = [...queue, item];
+    writeQueue(queue);
+  } catch {
+    /* a mangled link is not worth surfacing — the queue is simply unchanged */
+  }
+
+  // Take the parameter back out so a refresh does not re-add the same product.
+  params.delete('import');
+  const search = params.toString();
+  window.history.replaceState({}, '', `${window.location.pathname}${search ? `?${search}` : ''}`);
+  return queue;
+}
 
 /** A placeholder keeps a card from looking broken when the store gave no image. */
 const placeholderImage = (title) =>
@@ -43,12 +87,21 @@ export default function ProductFinder({ categories = [], onImported }) {
   const [addResult, setAddResult] = useState(null);
   const [adding, setAdding] = useState(false);
 
+  const [queue, setQueue] = useState([]);
+
   useEffect(() => {
     api
       .get('/admin/finder/status')
       .then(({ data }) => setStatus(data))
       .catch(() => setStatus({ stores: [] }));
   }, []);
+
+  const clearQueue = () => {
+    writeQueue([]);
+    setQueue([]);
+    setResult(null);
+    setItems([]);
+  };
 
   const category = (form.newCategory.trim() || form.category).trim();
 
@@ -72,6 +125,49 @@ export default function ProductFinder({ categories = [], onImported }) {
       }))
     );
   };
+
+  /**
+   * Vets whatever the bookmarklet has queued up and shows it in the review grid. The queue
+   * is re-vetted every time rather than cached, so "already on site" is always current.
+   */
+  const loadQueue = useCallback(async (items, cat) => {
+    setQueue(items);
+    if (!items.length) return;
+
+    setBusy(true);
+    setError('');
+    try {
+      const { data } = await api.post('/admin/finder/import', {
+        items,
+        category: cat || 'Other',
+      });
+      setResult(data);
+      setItems(
+        data.results.map((r, i) => ({
+          ...r,
+          _key: `${r.affiliate_url}-${i}`,
+          _approved: !r.already_published,
+          _open: false,
+        }))
+      );
+    } catch (err) {
+      setError(errMsg(err, 'Could not read the queued products'));
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  // On arrival, absorb anything the bookmarklet handed over via ?import=.
+  useEffect(() => {
+    const cameFromBookmarklet = new URLSearchParams(window.location.search).has('import');
+    const pending = drainUrlImport();
+    setQueue(pending);
+    if (cameFromBookmarklet) setMode('oneclick');
+    if (pending.length) loadQueue(pending, category);
+    // Deliberately mount-only: re-running this on every category change would re-post the
+    // whole queue on each keystroke. "Re-check" below does it on demand instead.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadQueue]);
 
   const runSearch = async (e) => {
     e.preventDefault();
@@ -159,6 +255,18 @@ export default function ProductFinder({ categories = [], onImported }) {
       if (data.created > 0) {
         const failed = new Set((data.errors || []).map((e) => e.title));
         setItems((prev) => prev.filter((it) => !it._approved || failed.has(it.title)));
+
+        // Anything published is done with, so it leaves the bookmarklet queue too —
+        // otherwise it would come back as "already on site" on every future visit.
+        const published = new Set(
+          approved.filter((it) => !failed.has(it.title)).map((it) => it.affiliate_url)
+        );
+        if (published.size) {
+          const left = readQueue().filter((q) => !published.has(q.url));
+          writeQueue(left);
+          setQueue(left);
+        }
+
         onImported?.();
       }
     } catch (err) {
@@ -207,9 +315,24 @@ export default function ProductFinder({ categories = [], onImported }) {
           <button className={mode === 'paste' ? 'active' : ''} onClick={() => setMode('paste')}>
             Paste links
           </button>
+          <button
+            className={mode === 'oneclick' ? 'active' : ''}
+            onClick={() => setMode('oneclick')}
+          >
+            One-click add{queue.length > 0 && ` (${queue.length})`}
+          </button>
         </div>
 
-        {mode === 'search' ? (
+        {mode === 'oneclick' ? (
+          <OneClickMode
+            queue={queue}
+            busy={busy}
+            error={error}
+            categoryFields={categoryFields}
+            onRecheck={() => loadQueue(readQueue(), category)}
+            onClear={clearQueue}
+          />
+        ) : mode === 'search' ? (
           <form onSubmit={runSearch}>
             <p className="muted" style={{ marginTop: 0 }}>
               Type what you want. Results come straight from the stores&rsquo; own pages —
@@ -448,6 +571,99 @@ export default function ProductFinder({ categories = [], onImported }) {
         </>
       )}
     </>
+  );
+}
+
+/**
+ * The bookmarklet mode: install it once, then collect products from any store.
+ *
+ * This is the answer to Amazon and Meesho refusing to serve their pages to a server. The
+ * bookmarklet runs in the admin's own browser, on the page they are already looking at, so
+ * there is no request from us to the store and nothing for the store to block.
+ */
+function OneClickMode({ queue, busy, error, categoryFields, onRecheck, onClear }) {
+  const linkRef = useRef(null);
+
+  // React refuses to render a `javascript:` href, so it is set on the element directly.
+  // Dragging the link to the bookmarks bar is what installs it.
+  useEffect(() => {
+    if (linkRef.current) {
+      linkRef.current.setAttribute('href', bookmarkletHref(window.location.origin));
+    }
+  }, []);
+
+  return (
+    <div>
+      <p className="muted" style={{ marginTop: 0 }}>
+        Works on <strong>every</strong> store — Amazon and Meesho included. They refuse to
+        show their pages to a server, but your browser is already showing them, so this
+        reads the page you are looking at.
+      </p>
+
+      <div className="bookmarklet-box">
+        <div className="stack">
+          <strong>Step 1 — install it once</strong>
+          <span className="muted">
+            Show your bookmarks bar (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>), then drag
+            this button onto it:
+          </span>
+        </div>
+        {/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
+        <a
+          ref={linkRef}
+          className="bookmarklet-btn"
+          onClick={(e) => {
+            e.preventDefault();
+            window.alert(
+              'Do not click it here — drag it up onto your bookmarks bar.\n\n' +
+                'Then open a product page on Amazon, Flipkart or Meesho and click it there.'
+            );
+          }}
+          title="Drag me to the bookmarks bar"
+        >
+          + Add to DealDost
+        </a>
+      </div>
+
+      <div className="stack" style={{ marginBottom: 14 }}>
+        <strong>Step 2 — use it</strong>
+        <ol className="tight-list muted">
+          <li>Browse Amazon, Flipkart or Meesho as normal and open a product page.</li>
+          <li>
+            Click <strong>+ Add to DealDost</strong> in your bookmarks bar. The product is
+            collected and this page opens with it queued.
+          </li>
+          <li>
+            Keep going — click it on as many products as you like. They stack up in one tab.
+          </li>
+          <li>Come back here, check the cards, and press <strong>Add</strong>.</li>
+        </ol>
+      </div>
+
+      <div className="form-grid">{categoryFields}</div>
+
+      {error && <div className="error-box">{error}</div>}
+
+      <div className="spread">
+        <span className="muted">
+          {busy
+            ? 'Checking the queue…'
+            : queue.length
+              ? `${queue.length} product${queue.length === 1 ? '' : 's'} queued`
+              : 'Nothing queued yet.'}
+        </span>
+        {queue.length > 0 && (
+          <div className="row">
+            <button type="button" className="btn btn-sm" onClick={onRecheck} disabled={busy}>
+              Re-check with this category
+            </button>
+            <button type="button" className="btn btn-sm btn-ghost" onClick={onClear}>
+              Empty the queue
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

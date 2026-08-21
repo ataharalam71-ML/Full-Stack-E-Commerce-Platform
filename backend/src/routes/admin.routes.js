@@ -17,6 +17,7 @@ const {
   finderStatus,
   searchProducts,
   resolveLinks,
+  importItems,
 } = require('../controllers/finder.controller');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 
@@ -49,6 +50,8 @@ router.delete('/deals/:id', deleteDeal);
 router.get('/finder/status', finderStatus);
 router.post('/finder/search', finderLimiter, searchProducts);
 router.post('/finder/resolve', finderLimiter, resolveLinks);
+// No outbound request of our own - the browser already did the reading.
+router.post('/finder/import', importItems);
 
 router.get('/settings', getSettings);
 router.put('/settings', updateSettings);
