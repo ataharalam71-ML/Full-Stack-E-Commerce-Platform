@@ -5,6 +5,13 @@ import { money } from '../../format';
 
 const LIMITS = [8, 12, 20, 30, 40];
 
+/** A placeholder keeps a card from looking broken when the store gave no image. */
+const placeholderImage = (title) =>
+  `https://picsum.photos/seed/${encodeURIComponent(title.slice(0, 24))}/600/600`;
+
+const discount = (price, mrp) =>
+  mrp && mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0;
+
 /**
  * Admin -> Find products.
  *

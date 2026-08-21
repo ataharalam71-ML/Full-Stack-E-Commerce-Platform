@@ -12,6 +12,7 @@ const CACHE_TTL_MS = Number(process.env.FINDER_CACHE_TTL_MS || 10 * 60 * 1000);
 const MAX_BYTES = Number(process.env.FINDER_MAX_BYTES || 4 * 1024 * 1024);
 const TIMEOUT_MS = Number(process.env.FINDER_TIMEOUT_MS || 20000);
 const MIN_GAP_MS = Number(process.env.FINDER_MIN_GAP_MS || 700);
+const RETRY_AFTER_BLOCK_MS = Number(process.env.FINDER_RETRY_MS || 2500);
 
 // A bot-check interstitial is tiny; a real search page is hundreds of KB.
 const BLOCK_PAGE_MAX_BYTES = 60 * 1024;
@@ -70,6 +71,26 @@ async function getHtml(url) {
   const cached = cache.get(url);
   if (cached) return { ...cached.value, cached: true };
 
+  let result = await fetchOnce(url);
+
+  // Amazon in particular throttles in bursts: the same URL is refused one minute and
+  // served the next, and its refusal is an HTTP 503 — "Service Unavailable", which is a
+  // retryable status by definition. So a single spaced-out retry is worth it and is
+  // ordinary client behaviour. One only: past that it stops being a retry and starts
+  // being pestering, and the panel is better off telling the admin plainly.
+  if (result.blocked) {
+    await sleep(RETRY_AFTER_BLOCK_MS);
+    const second = await fetchOnce(url);
+    if (second.ok) result = second;
+  }
+
+  // Only successes are cached: a block should be retried next time, not remembered.
+  if (result.ok) cache.set(url, { at: Date.now(), value: result });
+  return result;
+}
+
+/** A single attempt. Never throws for an HTTP-level problem. */
+async function fetchOnce(url) {
   const { hostname } = new URL(url);
   await throttle(hostname);
 
@@ -124,8 +145,6 @@ async function getHtml(url) {
     clearTimeout(timer);
   }
 
-  // Only successes are cached: a block should be retried, not remembered.
-  if (result.ok) cache.set(url, { at: Date.now(), value: result });
   return result;
 }
 
